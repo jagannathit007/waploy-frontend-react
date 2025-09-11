@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-
+import Swal from "sweetalert2";
 import {
   ChevronDownIcon,
   HorizontaLDots,
@@ -16,11 +16,13 @@ import {
   LogOut,          // Logout
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext";
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
+  onClick?: () => void;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
@@ -58,13 +60,7 @@ const navItems: NavItem[] = [
   {
     icon: <LogOut />,
     name: "Logout",
-    path: "/logout",
   },
-  // {
-  //   name: "Forms",
-  //   icon: <ListIcon />,
-  //   subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-  // },
 ];
 
 const othersItems: NavItem[] = [
@@ -80,18 +76,16 @@ const othersItems: NavItem[] = [
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { logout } = useAuth();
   const location = useLocation();
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
     index: number;
   } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
+  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
     (path: string) => location.pathname === path,
     [location.pathname]
@@ -146,6 +140,30 @@ const AppSidebar: React.FC = () => {
     });
   };
 
+const handleLogout = () => {
+  Swal.fire({
+    title: 'Are you sure?',
+    text: 'Do you want to log out?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981', // Matches brand-500 (emerald-500)
+    cancelButtonColor: '#ef4444', // Matches error-500 (red-500)
+    confirmButtonText: 'Yes, log out',
+    cancelButtonText: 'Cancel',
+    customClass: {
+      popup: 'dark:bg-gray-800 dark:text-gray-200', // Dark mode for modal
+      title: 'dark:text-white', // Dark mode for title
+      htmlContainer: 'dark:text-gray-300', // Correct property for content area
+    },
+  }).then((result) => {
+    if (result.isConfirmed) {
+      console.log('User confirmed logout');
+      // Call your logout function (e.g., clear auth state, redirect, etc.)
+      logout();
+    }
+  });
+};
+
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
@@ -164,11 +182,11 @@ const AppSidebar: React.FC = () => {
               }`}
             >
               <span
-                className={`menu-item-icon-size  ${
+                className={`menu-item-icon-size ${
                   openSubmenu?.type === menuType && openSubmenu?.index === index
                     ? "menu-item-icon-active"
                     : "menu-item-icon-inactive"
-                }`}
+                  }`}
               >
                 {nav.icon}
               </span>
@@ -187,7 +205,7 @@ const AppSidebar: React.FC = () => {
               )}
             </button>
           ) : (
-            nav.path && (
+            nav.path ? (
               <Link
                 to={nav.path}
                 className={`menu-item group ${
@@ -207,6 +225,18 @@ const AppSidebar: React.FC = () => {
                   <span className="menu-item-text">{nav.name}</span>
                 )}
               </Link>
+            ) : (
+              <button
+                onClick={nav.name === "Logout" ? handleLogout : nav.onClick}
+                className={`menu-item group menu-item-inactive cursor-pointer w-full text-left`}
+              >
+                <span className="menu-item-icon-size menu-item-icon-inactive">
+                  {nav.icon}
+                </span>
+                {(isExpanded || isHovered || isMobileOpen) && (
+                  <span className="menu-item-text">{nav.name}</span>
+                )}
+              </button>
             )
           )}
           {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
@@ -292,24 +322,27 @@ const AppSidebar: React.FC = () => {
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
+            <div className="flex items-center gap-2">
               <img
                 className="dark:hidden"
-                src="/images/logo/logo.svg"
+                src="/images/logo/whatsappicon.png"
                 alt="Logo"
-                width={150}
+                width={50}
                 height={40}
               />
-              <img
+               <img
                 className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
+                src="/images/logo/whatsappicon.png"
                 alt="Logo"
-                width={150}
+                width={50}
                 height={40}
               />
+              <h1 className="text-[30px] dark:text-white">Waploy</h1>
+              </div>
             </>
           ) : (
             <img
-              src="/images/logo/logo-icon.svg"
+              src="/images/logo/whatsappicon.png"
               alt="Logo"
               width={32}
               height={32}

@@ -1,10 +1,9 @@
-// src/components/auth/SignInForm.tsx (Modified)
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
-import Button from "../ui/button/Button";
+// import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
 import { signIn } from "../../services/api/auth";
 
@@ -76,7 +75,7 @@ export default function SignInForm() {
                     placeholder="info@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
+                    min="1"
                   />
                 </div>
                 <div>
@@ -89,7 +88,7 @@ export default function SignInForm() {
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      required
+                      min="1"
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -113,9 +112,9 @@ export default function SignInForm() {
                   </Link>
                 </div>
                 <div>
-                  <Button className="w-full" size="sm" type="submit" disabled={loading}>
+                  <button className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-50" type="submit" disabled={loading}>
                     {loading ? "Signing in..." : "Sign in"}
-                  </Button>
+                  </button>
                 </div>
               </div>
             </form>

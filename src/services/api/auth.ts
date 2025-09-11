@@ -1,8 +1,6 @@
-// src/services/api/auth.ts (New file)
-// Assuming your backend API base URL is proxied (e.g., via Vite proxy to http://localhost:5000)
 // If not, replace API_BASE with 'http://localhost:5000'
 // const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
-const API_BASE = "http://localhost:3100/api/web";
+const API_BASE = "https://waploy.itfuturz.in/api/web";
 
 interface ApiResponse<T> {
   status: number;
@@ -25,13 +23,13 @@ export const signIn = async (
   if (!response.ok) {
     const errorData: ApiResponse<null> = await response
       .json()
-      .catch(() => ({ success: false, message: "Network error" }));
+      .catch(() => ({ status: 500, message: "Network error" }));
     throw new Error(errorData.message || "Sign in failed");
   }
 
   const data: ApiResponse<string> = await response.json();
 
-  if (data.status != 200 || !data.data) {
+  if (data.status !== 200 || !data.data) {
     throw new Error(data.message || "Sign in failed");
   }
   return data;
@@ -63,15 +61,19 @@ export const signUp = async (
   if (!response.ok) {
     const errorData: ApiResponse<null> = await response
       .json()
-      .catch(() => ({ success: false, message: "Network error" }));
+      .catch(() => ({ status: 500, message: "Network error" }));
     throw new Error(errorData.message || "Sign up failed");
   }
 
   const data: ApiResponse<string> = await response.json();
-  if (!data.success || !data.data) {
+  if (data.status !== 200 || !data.data) {
     throw new Error(data.message || "Sign up failed");
   }
   return data;
+};
+
+export const getProfile = async (token: string): Promise<ApiResponse<any>> => {
+  return await apiCall('/get-profile', { method: 'POST' }, token);
 };
 
 // Helper function to include token in future API calls (for protected endpoints)
@@ -90,7 +92,7 @@ export const apiCall = async (
   if (!response.ok) {
     const errorData: ApiResponse<null> = await response
       .json()
-      .catch(() => ({ success: false, message: "Request failed" }));
+      .catch(() => ({ status: 500, message: "Request failed" }));
     throw new Error(errorData.message || "Request failed");
   }
   return response.json();

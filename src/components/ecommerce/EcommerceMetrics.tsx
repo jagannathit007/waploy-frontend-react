@@ -1,8 +1,8 @@
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  BoxIconLine,
-  GroupIcon,
+  // BoxIconLine,
+  // GroupIcon,
 } from "../../icons";
 import Badge from "../ui/badge/Badge";
 import {

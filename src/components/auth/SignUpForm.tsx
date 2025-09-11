@@ -85,7 +85,7 @@ export default function SignUpForm() {
                       placeholder="Enter your first name"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      required
+                      min="1"
                     />
                   </div>
                   <div className="sm:col-span-1">
@@ -97,7 +97,7 @@ export default function SignUpForm() {
                       placeholder="Enter your last name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      required
+                      min="1"
                     />
                   </div>
                 </div>
@@ -110,7 +110,7 @@ export default function SignUpForm() {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
+                    min="1"
                   />
                 </div>
                 <div>
@@ -122,7 +122,7 @@ export default function SignUpForm() {
                     placeholder="Enter your phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    required
+                    min="1"
                   />
                 </div>
                 <div>
@@ -134,7 +134,7 @@ export default function SignUpForm() {
                     placeholder="Enter company name"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    required
+                    min="1"
                   />
                 </div>
                 <div>
@@ -147,7 +147,7 @@ export default function SignUpForm() {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      required
+                      min="1"
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}

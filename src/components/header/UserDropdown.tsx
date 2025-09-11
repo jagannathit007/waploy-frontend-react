@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { useNavigate } from "react-router"; // Import useNavigate for programmatic navigation
+// import { useNavigate } from "react-router"; // Import useNavigate for programmatic navigation
+import Swal from "sweetalert2";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import {
-  Settings,
-  LogOut,
-} from "lucide-react";
+import { Settings, LogOut } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
+  const { logout } = useAuth();
+  // const navigate = useNavigate();
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -20,10 +20,28 @@ export default function UserDropdown() {
   }
 
   function handleLogout() {
-    localStorage.clear();
-    setIsOpen(false);
-    navigate("/signin", { replace: true });
-    window.location.reload();
+    console.log("Logout button clicked"); // Debug log
+    Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to log out?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#10b981", // Matches brand-500 (emerald-500)
+      cancelButtonColor: "#ef4444", // Matches error-500 (red-500)
+      confirmButtonText: "Yes, log out",
+      cancelButtonText: "Cancel",
+      customClass: {
+        popup: "dark:bg-gray-800 dark:text-gray-200", // Dark mode support
+        title: "dark:text-white",
+        htmlContainer: "dark:text-gray-300",
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        console.log("User confirmed logout"); // Debug log
+        logout();
+        closeDropdown();
+      }
+    });
   }
 
   return (
@@ -71,7 +89,7 @@ export default function UserDropdown() {
           </span>
         </div>
 
-        <ul className="flex flex-col gap-1 pt-4 pb-2 ">
+        <ul className="flex flex-col gap-1 pt-4 pb-2">
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
@@ -79,7 +97,7 @@ export default function UserDropdown() {
               to="/profile"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
-             <Settings/>
+              <Settings />
               Account settings
             </DropdownItem>
           </li>
@@ -87,8 +105,9 @@ export default function UserDropdown() {
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-4 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+          aria-label="Sign out"
         >
-          <LogOut/>
+          <LogOut />
           Sign out
         </button>
       </Dropdown>
