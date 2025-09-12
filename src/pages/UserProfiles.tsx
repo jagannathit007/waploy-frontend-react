@@ -243,7 +243,7 @@ const UserProfiles = () => {
         description="This is React.js Profile Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
       />
       <div className='p-6'>
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Account Settings</h1>
+      {/* <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Account Settings</h1> */}
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         {/* Header Section */}
@@ -345,9 +345,13 @@ const UserProfiles = () => {
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Website</label>
                   <p className="text-gray-900 dark:text-white font-medium">{profile.company.website || 'Not set'}</p>
                 </div>
-                <div className="space-y-1 md:col-span-2">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Business Type</label>
                   <p className="text-gray-900 dark:text-white font-medium">{profile.company.business || 'Not set'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone Number</label>
+                  <p className="text-gray-900 dark:text-white font-medium">{profile.company.phone || 'Not set'}</p>
                 </div>
               </div>
             </div>

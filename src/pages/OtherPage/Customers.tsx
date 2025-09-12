@@ -37,6 +37,12 @@ interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+interface CountryCode {
+  name: string;
+  code: string;
+  flag: string;
+}
+
 const api = axios.create({
   baseURL: API_BASE,
   headers: {
@@ -44,13 +50,66 @@ const api = axios.create({
   },
 });
 
+// Country codes data
+const countryCodes: CountryCode[] = [
+  { name: 'United States', code: '+1', flag: '🇺🇸' },
+  { name: 'India', code: '+91', flag: '🇮🇳' },
+  { name: 'United Kingdom', code: '+44', flag: '🇬🇧' },
+  { name: 'Canada', code: '+1', flag: '🇨🇦' },
+  { name: 'Australia', code: '+61', flag: '🇦🇺' },
+  { name: 'Germany', code: '+49', flag: '🇩🇪' },
+  { name: 'France', code: '+33', flag: '🇫🇷' },
+  { name: 'Japan', code: '+81', flag: '🇯🇵' },
+  { name: 'China', code: '+86', flag: '🇨🇳' },
+  { name: 'Brazil', code: '+55', flag: '🇧🇷' },
+  { name: 'Russia', code: '+7', flag: '🇷🇺' },
+  { name: 'South Africa', code: '+27', flag: '🇿🇦' },
+  { name: 'Mexico', code: '+52', flag: '🇲🇽' },
+  { name: 'Italy', code: '+39', flag: '🇮🇹' },
+  { name: 'Spain', code: '+34', flag: '🇪🇸' },
+  { name: 'Netherlands', code: '+31', flag: '🇳🇱' },
+  { name: 'Sweden', code: '+46', flag: '🇸🇪' },
+  { name: 'Norway', code: '+47', flag: '🇳🇴' },
+  { name: 'Denmark', code: '+45', flag: '🇩🇰' },
+  { name: 'Finland', code: '+358', flag: '🇫🇮' },
+  { name: 'Switzerland', code: '+41', flag: '🇨🇭' },
+  { name: 'Austria', code: '+43', flag: '🇦🇹' },
+  { name: 'Belgium', code: '+32', flag: '🇧🇪' },
+  { name: 'Portugal', code: '+351', flag: '🇵🇹' },
+  { name: 'Poland', code: '+48', flag: '🇵🇱' },
+  { name: 'Turkey', code: '+90', flag: '🇹🇷' },
+  { name: 'South Korea', code: '+82', flag: '🇰🇷' },
+  { name: 'Singapore', code: '+65', flag: '🇸🇬' },
+  { name: 'Malaysia', code: '+60', flag: '🇲🇾' },
+  { name: 'Thailand', code: '+66', flag: '🇹🇭' },
+  { name: 'Philippines', code: '+63', flag: '🇵🇭' },
+  { name: 'Indonesia', code: '+62', flag: '🇮🇩' },
+  { name: 'Vietnam', code: '+84', flag: '🇻🇳' },
+  { name: 'Bangladesh', code: '+880', flag: '🇧🇩' },
+  { name: 'Pakistan', code: '+92', flag: '🇵🇰' },
+  { name: 'Sri Lanka', code: '+94', flag: '🇱🇰' },
+  { name: 'Nepal', code: '+977', flag: '🇳🇵' },
+  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪' },
+  { name: 'Saudi Arabia', code: '+966', flag: '🇸🇦' },
+  { name: 'Israel', code: '+972', flag: '🇮🇱' },
+  { name: 'Egypt', code: '+20', flag: '🇪🇬' },
+  { name: 'Nigeria', code: '+234', flag: '🇳🇬' },
+  { name: 'Kenya', code: '+254', flag: '🇰🇪' },
+  { name: 'Ghana', code: '+233', flag: '🇬🇭' },
+  { name: 'Argentina', code: '+54', flag: '🇦🇷' },
+  { name: 'Chile', code: '+56', flag: '🇨🇱' },
+  { name: 'Colombia', code: '+57', flag: '🇨🇴' },
+  { name: 'Peru', code: '+51', flag: '🇵🇪' },
+  { name: 'Venezuela', code: '+58', flag: '🇻🇪' },
+];
+
 const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     _id: '',
     name: '',
-    countryCode: '',
+    countryCode: '+91',
     phone: '',
     email: '',
   });
@@ -64,6 +123,8 @@ const Customers: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
 
   const token = localStorage.getItem('token') || '';
 
@@ -78,6 +139,12 @@ const Customers: React.FC = () => {
       toast.addEventListener('mouseleave', Swal.resumeTimer);
     },
   });
+
+  // Filter countries based on search
+  const filteredCountries = countryCodes.filter(country =>
+    country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+    country.code.includes(countrySearch)
+  );
 
   const sendOTP = async (
     data: { mobileNo: string; name: string }
@@ -215,7 +282,7 @@ const Customers: React.FC = () => {
     setForm({
       _id: '',
       name: '',
-      countryCode: '',
+      countryCode: '+91',
       phone: '',
       email: '',
     });
@@ -223,6 +290,8 @@ const Customers: React.FC = () => {
     setOtpSent(false);
     setOtpCode('');
     setVerified(false);
+    setShowCountryDropdown(false);
+    setCountrySearch('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -376,6 +445,16 @@ const Customers: React.FC = () => {
     if (form._id && newMobile !== originalMobile) {
       setVerified(false);
     }
+  };
+
+  const handleCountrySelect = (countryCode: string) => {
+    handlePhoneChange('countryCode', countryCode);
+    setShowCountryDropdown(false);
+    setCountrySearch('');
+  };
+
+  const getSelectedCountry = () => {
+    return countryCodes.find(country => country.code === form.countryCode);
   };
 
   return (
@@ -559,44 +638,82 @@ const Customers: React.FC = () => {
                   required
                 />
               </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country Code</label>
-                  <input
-                    type="text"
-                    value={form.countryCode}
-                    onChange={(e) => handlePhoneChange('countryCode', e.target.value)}
+              
+              {/* Country Code Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country Code</label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCountryDropdown(!showCountryDropdown)}
                     disabled={verified}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                    placeholder="+1"
-                    required
-                  />
-                </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
-                  <div className="flex">
-                    <input
-                      type="text"
-                      value={form.phone}
-                      onChange={(e) => handlePhoneChange('phone', e.target.value)}
-                      disabled={verified}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-l-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                      placeholder="Enter phone"
-                      required
-                    />
-                    {!verified && (
-                      <button
-                        type="button"
-                        onClick={handleSendOTP}
-                        disabled={sendingOtp || !form.countryCode || !form.phone || !form.name}
-                        className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-r-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                      >
-                        {sendingOtp ? 'Sending...' : 'Send OTP'}
-                      </button>
-                    )}
-                  </div>
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <span>{getSelectedCountry()?.flag}</span>
+                      <span>{form.countryCode}</span>
+                      <span className="text-gray-500 text-sm">{getSelectedCountry()?.name}</span>
+                    </span>
+                    <svg className={`w-4 h-4 transition-transform ${showCountryDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {showCountryDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto dark:bg-gray-800 dark:border-gray-600">
+                      <div className="p-2">
+                        <input
+                          type="text"
+                          placeholder="Search countries..."
+                          value={countrySearch}
+                          onChange={(e) => setCountrySearch(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {filteredCountries.map((country) => (
+                          <button
+                            key={country.code + country.name}
+                            type="button"
+                            onClick={() => handleCountrySelect(country.code)}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors"
+                          >
+                            <span className="text-lg">{country.flag}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{country.code}</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{country.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+                <div className="flex">
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={(e) => handlePhoneChange('phone', e.target.value)}
+                    disabled={verified}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                    placeholder="Enter phone"
+                    required
+                  />
+                  {!verified && (
+                    <button
+                      type="button"
+                      onClick={handleSendOTP}
+                      disabled={sendingOtp || !form.countryCode || !form.phone || !form.name}
+                      className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-r-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    >
+                      {sendingOtp ? 'Sending...' : 'Send OTP'}
+                    </button>
+                  )}
+                </div>
+              </div>
+              
               {otpSent && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -621,6 +738,7 @@ const Customers: React.FC = () => {
                   </div>
                 </div>
               )}
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                 <input
@@ -631,6 +749,7 @@ const Customers: React.FC = () => {
                   placeholder="Enter email"
                 />
               </div>
+              
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-800">
                 <button
                   type="button"

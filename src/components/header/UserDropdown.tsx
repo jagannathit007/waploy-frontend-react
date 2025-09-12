@@ -11,6 +11,7 @@ export default function UserDropdown() {
   const { logout } = useAuth();
   // const navigate = useNavigate();
 
+  const { profile } = useAuth();
   function toggleDropdown() {
     setIsOpen(!isOpen);
   }
@@ -50,11 +51,26 @@ export default function UserDropdown() {
         onClick={toggleDropdown}
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/images/user/owner.jpg" alt="User" />
+        <span className="mr-3 flex items-center justify-center rounded-full h-11 w-11 bg-emerald-600 text-white font-semibold ">
+          {profile
+            ? profile.profile.lastName
+              ? `${profile.profile.firstName[0]}${profile.profile.lastName[0]}`.toUpperCase()
+              : profile.profile.firstName[0].toUpperCase()
+            : "U"}
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">Musharof</span>
+        <span className="block mr-1 font-medium text-theme-md">
+          {profile
+            ? `${profile.profile.firstName
+                .charAt(0)
+                .toUpperCase()}${profile.profile.firstName.slice(1)}`
+            : "User"}
+          {/* <p className="text-theme-xs font-normal ">
+            {profile.email&& profile?.email.length > 10 ? profile.email.substring(0, 10) + "..." : profile ? profile.email: ""}
+           
+          </p> */}
+        </span>
+
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -82,10 +98,12 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Musharof Chowdhury
+            {profile
+              ? `${profile.profile.firstName} ${profile.profile.lastName}`
+              : "User"}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            randomuser@pimjo.com
+            {profile ? profile.email : ""}
           </span>
         </div>
 
