@@ -366,7 +366,7 @@ const Chats = () => {
 
       {/* Add Customer Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-[#47546740] bg-opacity-50 overflow-y-auto h-full w-full z-[999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-[#c0d9c740] bg-opacity-50 overflow-y-auto h-full w-full z-[999] flex items-center justify-center p-4">
           <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full mx-auto border border-gray-200 dark:border-gray-800 transform transition-all duration-300 scale-100">
             <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
               <div className="flex items-center justify-between">
