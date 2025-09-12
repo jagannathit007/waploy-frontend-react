@@ -13,6 +13,9 @@ interface UserProfile {
     name: string;
     logo?: string;
     website?: string;
+    business?: string;
+    phone?: string;
+    
   };
   role: 'admin' | 'team_member';
 }
