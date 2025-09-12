@@ -4,7 +4,7 @@ import PageMeta from '../../components/common/PageMeta';
 
 const Subscription = () => {
   const { profile } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  // const [selectedPlan, setSelectedPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' or 'yearly'
 
   // Conversion rate: 1 USD = 83 INR
@@ -87,20 +87,20 @@ const Subscription = () => {
     status: 'Active'
   };
 
-  const handleBuyNow = (plan) => {
-    setSelectedPlan(plan);
+  const handleBuyNow = (plan:any) => {
+    // setSelectedPlan(plan);
     console.log(`Purchasing ${plan.name} - ${billingCycle} billing`);
     alert(`Redirecting to payment for ${plan.name} (${billingCycle} billing)...`);
   };
 
-  const formatFeatureValue = (value) => {
+  const formatFeatureValue = (value:any) => {
     if (typeof value === 'number') {
       return value.toLocaleString('en-IN');
     }
     return value;
   };
 
-  const calculateSavings = (monthly, yearly) => {
+  const calculateSavings = (monthly:any, yearly:any) => {
     const monthlyCost = monthly * 12;
     const savings = monthlyCost - yearly;
     const percentage = Math.round((savings / monthlyCost) * 100);
@@ -156,8 +156,10 @@ const Subscription = () => {
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Days Remaining</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {Math.ceil((new Date(currentPlan.expiryDate) - new Date()) / (1000 * 60 * 60 * 24))} days
-              </p>
+  {Math.ceil(
+    (new Date(currentPlan.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+  )} days
+</p>
             </div>
           </div>
         </div>

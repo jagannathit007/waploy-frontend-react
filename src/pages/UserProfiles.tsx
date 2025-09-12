@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Swal from 'sweetalert2';
 import { apiCall } from '../services/api/auth';
-import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+// const API_BASE = import.meta.env.VITE_API_BASE;
 
 const Toast = Swal.mixin({
   toast: true,
@@ -20,7 +19,7 @@ const Toast = Swal.mixin({
 });
 
 const UserProfiles = () => {
-  const { profile, token, updateProfile } = useAuth();
+  const { profile, token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [userForm, setUserForm] = useState({
     firstName: '',
@@ -69,13 +68,13 @@ const UserProfiles = () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       }
-    }, token);
+    }, token!);
     
     if (response && response.data) {
       localStorage.setItem('profile', JSON.stringify(response.data));
-      if (updateProfile) {
-        updateProfile(response.data);
-      }
+      // if (updateProfile) {
+      //   updateProfile(response.data);
+      // }
       return response.data; // Return the updated profile
     }
   } catch (error) {
@@ -84,8 +83,8 @@ const UserProfiles = () => {
   }
 };
 
-  const togglePasswordVisibility = (field) => {
-    setShowPasswords(prev => ({
+  const togglePasswordVisibility = (field:any) => {
+    setShowPasswords((prev:any) => ({
       ...prev,
       [field]: !prev[field]
     }));
@@ -104,25 +103,25 @@ const UserProfiles = () => {
     });
   };
 
-  const handleUserSubmit = async (e) => {
+  const handleUserSubmit = async (e:any) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await apiCall(
-        '/update-detail', 
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            firstName: userForm.firstName,
-            lastName: userForm.lastName,
-            phone: userForm.phone,
-          })
-        }
-      );
+      // const response = await apiCall(
+      //   '/update-detail', 
+      //   {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Authorization': `Bearer ${token}`
+      //     },
+      //     body: JSON.stringify({
+      //       firstName: userForm.firstName,
+      //       lastName: userForm.lastName,
+      //       phone: userForm.phone,
+      //     })
+      //   }
+      // );
       
       Toast.fire({
         icon: 'success',
@@ -131,7 +130,7 @@ const UserProfiles = () => {
       window.location.reload();
       await refreshProfile();
       setShowUserForm(false);
-    } catch (error) {
+    } catch (error:any) {
       console.error('Update user details error:', error);
       Toast.fire({
         icon: 'error',
@@ -142,25 +141,25 @@ const UserProfiles = () => {
     }
   };
 
-  const handleCompanySubmit = async (e) => {
+  const handleCompanySubmit = async (e:any) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await apiCall(
-        '/update-company-detail', 
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            name: companyForm.name,
-            website: companyForm.website,
-            business: companyForm.business,
-          })
-        }
-      );
+      // const response = await apiCall(
+      //   '/update-company-detail', 
+      //   {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Authorization': `Bearer ${token}`
+      //     },
+      //     body: JSON.stringify({
+      //       name: companyForm.name,
+      //       website: companyForm.website,
+      //       business: companyForm.business,
+      //     })
+      //   }
+      // );
       
       Toast.fire({
         icon: 'success',
@@ -169,7 +168,7 @@ const UserProfiles = () => {
       window.location.reload();
       await refreshProfile();
       setShowCompanyForm(false);
-    } catch (error) {
+    } catch (error:any) {
       console.error('Update company details error:', error);
       Toast.fire({
         icon: 'error',
@@ -180,7 +179,7 @@ const UserProfiles = () => {
     }
   };
 
-  const handlePasswordSubmit = async (e) => {
+  const handlePasswordSubmit = async (e:any) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       Toast.fire({
@@ -191,20 +190,20 @@ const UserProfiles = () => {
     }
     setLoading(true);
     try {
-      const response = await apiCall(
-        '/change-password', 
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            currentPassword: passwordForm.currentPassword,
-            newPassword: passwordForm.newPassword,
-          })
-        }
-      );
+      // const response = await apiCall(
+      //   '/change-password', 
+      //   {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Authorization': `Bearer ${token}`
+      //     },
+      //     body: JSON.stringify({
+      //       currentPassword: passwordForm.currentPassword,
+      //       newPassword: passwordForm.newPassword,
+      //     })
+      //   }
+      // );
       
       Toast.fire({
         icon: 'success',
@@ -213,7 +212,7 @@ const UserProfiles = () => {
       
       resetPasswordForm();
       setShowPasswordForm(false);
-    } catch (error) {
+    } catch (error:any) {
       console.error('Change password error:', error);
       Toast.fire({
         icon: 'error',
@@ -232,7 +231,7 @@ const UserProfiles = () => {
     );
   }
 
-  const getInitials = (firstName, lastName) => {
+  const getInitials = (firstName:string, lastName:string) => {
     return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
   };
 

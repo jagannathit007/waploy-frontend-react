@@ -9,11 +9,8 @@ import {
   MessageSquare, // Placeholder for messages
   Video, // Placeholder for videos
   Image, // Placeholder for images
-  CheckCircle, // Placeholder for subscriptions
   Calendar, // Placeholder for validity
   QrCode, // QR Code icon
-  Users, // Users icon for contacts
-  Download, // Download icon
 } from "lucide-react";
 
 export default function Dashboard() {

@@ -1,8 +1,35 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Swal from 'sweetalert2';
 
-// Dummy data for customers (unchanged)
-const dummyCustomers = [
+// Define interfaces for type safety
+interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  lastMessage: string;
+  lastTime: string;
+  unread: number;
+  pinned: boolean;
+  isBlocked: boolean;
+  email?: string;
+  label?: string;
+}
+
+interface Message {
+  id: string;
+  from: 'me' | 'them';
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'contact';
+  content: string;
+  time: string;
+}
+
+interface StarredMessage {
+  id: number;
+  content: string;
+}
+
+// Dummy data for customers
+const dummyCustomers: Customer[] = [
   {
     id: '1',
     name: 'John Doe',
@@ -35,8 +62,8 @@ const dummyCustomers = [
   },
 ];
 
-// Dummy chat messages for each customer (unchanged)
-const dummyChats = {
+// Dummy chat messages for each customer
+const dummyChats: Record<string, Message[]> = {
   '1': [
     { id: 'm1', from: 'them', type: 'text', content: 'Hello!', time: '10:30 AM' },
     { id: 'm2', from: 'me', type: 'text', content: 'Hi John!', time: '10:32 AM' },
@@ -54,28 +81,28 @@ const dummyChats = {
   ],
 };
 
-const starredMessages = [
-  { id: 1, content: "Message 1" },
-  { id: 2, content: "Message 2" },
+const starredMessages: StarredMessage[] = [
+  { id: 1, content: 'Message 1' },
+  { id: 2, content: 'Message 2' },
 ];
 
 const Chats = () => {
-  const [customers, setCustomers] = useState(dummyCustomers);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customers, setCustomers] = useState<Customer[]>(dummyCustomers);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' or 'unread'
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({ name: '', countryCode: '', phone: '', email: '' });
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [newMessage, setNewMessage] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [showMenu, setShowMenu] = useState(null); // For three-dot menu
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [showMenu, setShowMenu] = useState<null | string>(null); // Fixed type
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [showAllStarred, setShowAllStarred] = useState(false);
   const [showAllMedia, setShowAllMedia] = useState(false);
-  const [selectedMediaType, setSelectedMediaType] = useState('image');
-  const [showSearchModal, setShowSearchModal] = useState(false); // State for search modal
-  const [chatSearchQuery, setChatSearchQuery] = useState(''); // State for chat search query
+  const [selectedMediaType, setSelectedMediaType] = useState<'image' | 'video' | 'audio' | 'document'>('image');
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
 
   const Toast = Swal.mixin({
     toast: true,
@@ -86,7 +113,7 @@ const Chats = () => {
   });
 
   // Function to get initials from name
-  const getInitials = (name) => {
+  const getInitials = (name: string): string => {
     const nameParts = name.trim().split(' ');
     if (nameParts.length > 1) {
       return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
@@ -95,38 +122,35 @@ const Chats = () => {
   };
 
   const filteredCustomers = customers
-    .filter((c) =>
-      (filter === 'all' || (filter === 'unread' && c.unread > 0)) &&
-      c.name.toLowerCase().includes(search.toLowerCase())
-    )
-    .sort((a, b) => b.pinned - a.pinned);
+    .filter((c) => (filter === 'all' || (filter === 'unread' && c.unread > 0)) && c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
-  const handleSelectCustomer = (customer) => {
+  const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setMessages(dummyChats[customer.id] || []);
     setShowMenu(null);
   };
 
-  const handlePin = (id) => {
-    setCustomers(customers.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c));
+  const handlePin = (id: string) => {
+    setCustomers(customers.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)));
     setShowMenu(null);
-    Toast.fire({ icon: 'success', title: `Customer ${customers.find(c => c.id === id).pinned ? 'unpinned' : 'pinned'}` });
+    Toast.fire({ icon: 'success', title: `Customer ${customers.find((c) => c.id === id)!.pinned ? 'unpinned' : 'pinned'}` });
   };
 
-  const handleBlock = (id) => {
-    setCustomers(customers.map(c => c.id === id ? { ...c, isBlocked: !c.isBlocked } : c));
+  const handleBlock = (id: string) => {
+    setCustomers(customers.map((c) => (c.id === id ? { ...c, isBlocked: !c.isBlocked } : c)));
     Toast.fire({ icon: 'success', title: 'Customer block status updated' });
   };
 
-  const handleDelete = (id) => {
-    setCustomers(customers.filter(c => c.id !== id));
+  const handleDelete = (id: string) => {
+    setCustomers(customers.filter((c) => c.id !== id));
     if (selectedCustomer?.id === id) setSelectedCustomer(null);
     Toast.fire({ icon: 'success', title: 'Customer deleted' });
   };
 
-  const handleAddCustomer = (e) => {
+  const handleAddCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    const newCustomer = {
+    const newCustomer: Customer = {
       id: Date.now().toString(),
       ...form,
       lastMessage: '',
@@ -141,16 +165,22 @@ const Chats = () => {
     Toast.fire({ icon: 'success', title: 'Customer added' });
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage) return;
-    const newMsg = { id: Date.now().toString(), from: 'me', type: 'text', content: newMessage, time: new Date().toLocaleTimeString() };
+    const newMsg: Message = {
+      id: Date.now().toString(),
+      from: 'me',
+      type: 'text',
+      content: newMessage,
+      time: new Date().toLocaleTimeString(),
+    };
     setMessages([...messages, newMsg]);
-    setCustomers(customers.map(c => c.id === selectedCustomer.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c));
+    setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c)));
     setNewMessage('');
   };
 
-  const renderMessage = (msg) => {
+  const renderMessage = (msg: Message) => {
     const isMe = msg.from === 'me';
     let content;
     switch (msg.type) {
@@ -182,16 +212,14 @@ const Chats = () => {
     );
   };
 
-  const getMedia = (type) => messages.filter(m => m.type === type);
+  const getMedia = (type: 'image' | 'video' | 'audio' | 'document') => messages.filter((m) => m.type === type);
 
   // Filter messages based on search query
-  const filteredMessages = messages.filter((msg) =>
-    msg.type === 'text' && chatSearchQuery && msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase())
-  );
+  const filteredMessages = messages.filter((msg) => msg.type === 'text' && chatSearchQuery && msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase()));
 
   return (
     <div className="flex max-h-[calc(100vh-77px)] overflow-hidden bg-gray-100 dark:bg-gray-900">
-      {/* Left Sidebar (unchanged) */}
+      {/* Left Sidebar */}
       <div className="w-1/4 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
         <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800">
           <div className="flex justify-between items-center mb-2">
@@ -230,7 +258,9 @@ const Chats = () => {
             <div
               key={customer.id}
               onClick={() => handleSelectCustomer(customer)}
-              className={`flex items-center px-3 py-2 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${selectedCustomer?.id === customer.id ? 'bg-gray-100 dark:bg-gray-600' : ''}`}
+              className={`flex items-center px-3 py-2 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                selectedCustomer?.id === customer.id ? 'bg-gray-100 dark:bg-gray-600' : ''
+              }`}
             >
               <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mr-3 text-lg font-semibold">
                 {getInitials(customer.name)}
@@ -246,15 +276,16 @@ const Chats = () => {
                   {customer.unread > 0 && (
                     <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full mb-1">{customer.unread}</span>
                   )}
-                  {customer.pinned && (
-                    <span className="text-sm text-gray-500 ml-1 mb-1">📌</span>
-                  )}
+                  {customer.pinned && <span className="text-sm text-gray-500 ml-1 mb-1">📌</span>}
                 </div>
                 <span className="text-xs text-gray-500">{customer.lastTime}</span>
               </div>
               <div className="relative">
                 <button
-                  onClick={(e) => { e.stopPropagation(); setShowMenu(showMenu === customer.id ? null : customer.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(showMenu === customer.id ? null : customer.id);
+                  }}
                   className="ml-2 text-gray-500"
                 >
                   ⋯
@@ -277,7 +308,7 @@ const Chats = () => {
 
       {/* Right Chat Area */}
       <div className="w-3/4 flex flex-col">
-        {selectedCustomer ? (
+        {selectedCustomer?.id ? (
           <>
             {/* Chat Header */}
             <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex items-center justify-between">
@@ -291,16 +322,16 @@ const Chats = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
-                <button 
-                  onClick={() => setShowSearchModal(true)} 
+                <button
+                  onClick={() => setShowSearchModal(true)}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-2 border border-gray-300 dark:border-gray-600 rounded-full"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </button>
-                <button 
-                  onClick={() => setShowProfileModal(true)} 
+                <button
+                  onClick={() => setShowProfileModal(true)}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
                   ⋯
@@ -309,9 +340,7 @@ const Chats = () => {
             </div>
 
             {/* Chat Body */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
-              {messages.map(renderMessage)}
-            </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">{messages.map(renderMessage)}</div>
 
             {/* Message Input */}
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex">
@@ -335,7 +364,7 @@ const Chats = () => {
         )}
       </div>
 
-      {/* Add Customer Modal (unchanged) */}
+      {/* Add Customer Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-[#47546740] bg-opacity-50 overflow-y-auto h-full w-full z-[999] flex items-center justify-center p-4">
           <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full mx-auto border border-gray-200 dark:border-gray-800 transform transition-all duration-300 scale-100">
@@ -364,9 +393,7 @@ const Chats = () => {
             </div>
             <form onSubmit={handleAddCustomer} className="px-6 py-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Customer Name *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Customer Name *</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -384,18 +411,19 @@ const Chats = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Country Code *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Country Code *</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                   </div>
-                  <span className="absolute left-10 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                    +
-                  </span>
+                  <span className="absolute left-10 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">+</span>
                   <input
                     type="text"
                     placeholder="91"
@@ -407,13 +435,16 @@ const Chats = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Phone Number *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone Number *</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
                     </svg>
                   </div>
                   <input
@@ -449,18 +480,18 @@ const Chats = () => {
         </div>
       )}
 
-      {/* Profile Modal (unchanged) */}
-      {showProfileModal && selectedCustomer && (
+      {/* Profile Modal */}
+      {showProfileModal && selectedCustomer?.id && (
         <div className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50" onClick={() => setShowProfileModal(false)}>
-          <div 
-            className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto" 
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {showAllStarred ? 'Starred Messages' : showAllMedia ? 'Media, docs and links' : 'Contact Info'}
               </h2>
-              <button onClick={() => setShowProfileModal(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -516,16 +547,13 @@ const Chats = () => {
                   <div className="mb-6">
                     <div className="flex justify-between items-center">
                       <h3 className="font-medium text-gray-900 dark:text-white">Starred Messages</h3>
-                      <button 
-                        onClick={() => setShowAllStarred(true)}
-                        className="text-emerald-600 dark:text-emerald-400 text-sm"
-                      >
+                      <button onClick={() => setShowAllStarred(true)} className="text-emerald-600 dark:text-emerald-400 text-sm">
                         See all
                       </button>
                     </div>
                     {starredMessages && starredMessages.length > 0 ? (
                       <div className="mt-2 space-y-2">
-                        {starredMessages.slice(0, 3).map(message => (
+                        {starredMessages.slice(0, 3).map((message) => (
                           <p key={message.id} className="text-sm text-gray-600 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-800 rounded">
                             {message.content}
                           </p>
@@ -539,17 +567,14 @@ const Chats = () => {
                   <div className="mb-6">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="font-medium text-gray-900 dark:text-white">Media, docs and links</h3>
-                      <button 
-                        onClick={() => setShowAllMedia(true)}
-                        className="text-emerald-600 dark:text-emerald-400 text-sm"
-                      >
+                      <button onClick={() => setShowAllMedia(true)} className="text-emerald-600 dark:text-emerald-400 text-sm">
                         See all
                       </button>
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Images</h4>
                       <div className="grid grid-cols-3 gap-2">
-                        {getMedia('image').slice(0, 4).map(m => (
+                        {getMedia('image').slice(0, 4).map((m) => (
                           <img key={m.id} src={m.content} alt="Image" className="w-full h-20 object-cover rounded" />
                         ))}
                       </div>
@@ -557,14 +582,14 @@ const Chats = () => {
                   </div>
                   <hr className="my-4 border-gray-200 dark:border-gray-700" />
                   <div className="space-y-2">
-                    <button 
-                      onClick={() => handleBlock(selectedCustomer.id)} 
+                    <button
+                      onClick={() => handleBlock(selectedCustomer.id)}
                       className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                     >
                       {selectedCustomer.isBlocked ? 'Unblock contact' : 'Block contact'}
                     </button>
-                    <button 
-                      onClick={() => handleDelete(selectedCustomer.id)} 
+                    <button
+                      onClick={() => handleDelete(selectedCustomer.id)}
                       className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                     >
                       Delete chat
@@ -573,15 +598,12 @@ const Chats = () => {
                 </>
               ) : showAllStarred ? (
                 <>
-                  <button 
-                    onClick={() => setShowAllStarred(false)}
-                    className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
-                  >
+                  <button onClick={() => setShowAllStarred(false)} className="text-emerald-600 dark:text-emerald-400 text-sm mb-4">
                     Back to Profile
                   </button>
                   <div className="space-y-4">
                     {starredMessages && starredMessages.length > 0 ? (
-                      starredMessages.map(message => (
+                      starredMessages.map((message) => (
                         <p key={message.id} className="text-sm text-gray-600 dark:text-gray-400 p-3 bg-gray-100 dark:bg-gray-800 rounded">
                           {message.content}
                         </p>
@@ -593,21 +615,16 @@ const Chats = () => {
                 </>
               ) : showAllMedia ? (
                 <>
-                  <button 
-                    onClick={() => setShowAllMedia(false)}
-                    className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
-                  >
+                  <button onClick={() => setShowAllMedia(false)} className="text-emerald-600 dark:text-emerald-400 text-sm mb-4">
                     Back to Profile
                   </button>
                   <div className="flex space-x-4 mb-4">
-                    {['image', 'video', 'audio', 'document'].map(type => (
+                    {['image', 'video', 'audio', 'document'].map((type) => (
                       <button
                         key={type}
-                        onClick={() => setSelectedMediaType(type)}
+                        onClick={() => setSelectedMediaType(type as 'image' | 'video' | 'audio' | 'document')}
                         className={`px-2 py-1 rounded-lg ${
-                          selectedMediaType === type 
-                            ? 'bg-emerald-600 text-white' 
-                            : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                          selectedMediaType === type ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
                         }`}
                       >
                         {type.charAt(0).toUpperCase() + type.slice(1)}s
@@ -617,21 +634,21 @@ const Chats = () => {
                   <div className="space-y-4">
                     {selectedMediaType === 'image' && (
                       <div className="grid grid-cols-3 gap-2">
-                        {getMedia('image').map(m => (
+                        {getMedia('image').map((m) => (
                           <img key={m.id} src={m.content} alt="Image" className="w-full h-32 object-cover rounded" />
                         ))}
                       </div>
                     )}
                     {selectedMediaType === 'video' && (
                       <div className="grid grid-cols-3 gap-2">
-                        {getMedia('video').map(m => (
+                        {getMedia('video').map((m) => (
                           <video key={m.id} src={m.content} className="w-full h-32 object-cover rounded" controls />
                         ))}
                       </div>
                     )}
                     {selectedMediaType === 'audio' && (
                       <div className="space-y-2">
-                        {getMedia('audio').map(m => (
+                        {getMedia('audio').map((m) => (
                           <div key={m.id}>
                             <audio src={m.content} controls className="w-full" />
                           </div>
@@ -640,7 +657,7 @@ const Chats = () => {
                     )}
                     {selectedMediaType === 'document' && (
                       <div className="space-y-2">
-                        {getMedia('document').map(m => (
+                        {getMedia('document').map((m) => (
                           <a key={m.id} href={m.content} className="block text-blue-500 dark:text-blue-400 mb-1">
                             {m.content}
                           </a>
@@ -656,15 +673,15 @@ const Chats = () => {
       )}
 
       {/* Search Modal */}
-      {showSearchModal && selectedCustomer && (
+      {showSearchModal && selectedCustomer?.id && (
         <div className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50" onClick={() => setShowSearchModal(false)}>
-          <div 
-            className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto" 
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Search Messages</h2>
-              <button onClick={() => setShowSearchModal(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              <button
+                onClick={() => setShowSearchModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
