@@ -378,7 +378,7 @@ const UserProfiles = () => {
                 Change Password
               </button>
             </div>
-            <div className="px-6 py-4">
+            {/* <div className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">Password</p>
@@ -386,7 +386,7 @@ const UserProfiles = () => {
                 </div>
                 <div className="text-2xl text-gray-300">••••••••</div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
 

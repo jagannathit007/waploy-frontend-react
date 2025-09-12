@@ -89,13 +89,15 @@ const TeamMembers: React.FC = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      if (response.data.status !== 200 || !response.data.data) {
+      if (response.data.status !== 200) {
         throw new Error(
           response.data.message || "Failed to create team member"
         );
       }
+      
       return response.data;
     } catch (error: any) {
+      console.log(error);
       throw new Error(
         error.response?.data?.message || "Failed to create team member"
       );
@@ -244,27 +246,52 @@ const TeamMembers: React.FC = () => {
     setLoading(true);
     try {
       if (memberForm._id) {
-        await updateTeamMember(memberForm);
-        Toast.fire({
-          icon: "success",
-          title: "Team member updated successfully!",
-        });
+        const response = await updateTeamMember(memberForm);
+        console.log(response);
+        if (response.status === 200 && response.data) {
+          Toast.fire({
+            icon: "success",
+            title: response.message || "Team member updated successfully!",
+          });
+          setMemberForm({
+            _id: "",
+            firstName: "",
+            lastName: "",
+            email: "",
+            teamId: "",
+          });
+          setShowMemberForm(false);
+          fetchTeamMembers();
+        } else {
+          Toast.fire({
+            icon: "error",
+            title: response.message || "Failed to update team member",
+          });
+        }
       } else {
-        await createTeamMember({ ...memberForm, password: "defaultPassword" });
-        Toast.fire({
-          icon: "success",
-          title: "Team member created successfully!",
-        });
+        const response = await createTeamMember({ ...memberForm, password: "defaultPassword" });
+       console.log(response);
+        if (response.status === 200 && response.data) {
+          Toast.fire({
+            icon: "success",
+            title: response.message || "Team member created successfully!",
+          });
+          setMemberForm({
+            _id: "",
+            firstName: "",
+            lastName: "",
+            email: "",
+            teamId: "",
+          });
+          setShowMemberForm(false);
+          fetchTeamMembers();
+        } else {
+          Toast.fire({
+            icon: "error",
+            title: response.message || "Failed to create team member",
+          });
+        }
       }
-      setMemberForm({
-        _id: "",
-        firstName: "",
-        lastName: "",
-        email: "",
-        teamId: "",
-      });
-      setShowMemberForm(false);
-      fetchTeamMembers();
     } catch (error: any) {
       Toast.fire({
         icon: "error",
