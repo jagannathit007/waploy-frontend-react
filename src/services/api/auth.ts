@@ -1,6 +1,8 @@
 // If not, replace API_BASE with 'http://localhost:5000'
 // const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
-const API_BASE = "https://waploy.itfuturz.in/api/web";
+// const API_BASE = "https://waploy.itfuturz.in/api/web";
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 
 interface ApiResponse<T> {
   status: number;

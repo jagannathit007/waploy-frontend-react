@@ -5,7 +5,9 @@ import { apiCall } from '../services/api/auth';
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 
-const API_BASE = "https://waploy.itfuturz.in/api/web";
+// const API_BASE = "https://waploy.itfuturz.in/api/web";
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 
 const Toast = Swal.mixin({
   toast: true,

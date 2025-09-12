@@ -1,4 +1,6 @@
-const API_BASE = "https://waploy.itfuturz.in/api/web";
+// const API_BASE = "https://waploy.itfuturz.in/api/web";
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 
 import axios, { AxiosResponse } from 'axios';
 

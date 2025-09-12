@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import Swal from 'sweetalert2';
 
-const API_BASE = "https://waploy.itfuturz.in/api/web";
+// const API_BASE = "https://waploy.itfuturz.in/api/web";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 interface ApiResponse<T> {
   status: number;

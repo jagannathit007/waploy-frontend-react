@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import Swal from 'sweetalert2';
 
-const API_BASE = "https://waploy.itfuturz.in/api/web";
+// const API_BASE = "https://waploy.itfuturz.in/api/web";
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 
 interface ApiResponse<T> {
   status: number;
@@ -353,7 +355,7 @@ const TeamMembers: React.FC = () => {
             <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">Team Management</h1>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Manage your teams and team members efficiently</p>
           </div>
-          <div className="relative max-w-md">
+          <div className="relative max-w-md w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
