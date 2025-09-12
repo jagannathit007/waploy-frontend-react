@@ -242,8 +242,9 @@ const UserProfiles = () => {
         title="React.js Profile Dashboard | TailAdmin - Next.js Admin Dashboard Template"
         description="This is React.js Profile Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
       />
-      <PageBreadcrumb pageTitle="Account Settings" />
-      
+      <div className='p-6'>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Account Settings</h1>
+
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         {/* Header Section */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
@@ -643,6 +644,7 @@ const UserProfiles = () => {
             </div>
           </div>
         )}
+      </div>
       </div>
     </>
   );

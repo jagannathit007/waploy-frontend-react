@@ -12,7 +12,9 @@ export default function Home() {
         <div className="col-span-12 space-y-6 xl:col-span-7">
         </div>
       </div>
+      <div className="p-6">
           <EcommerceMetrics />
+      </div>
     </>
   );
 }

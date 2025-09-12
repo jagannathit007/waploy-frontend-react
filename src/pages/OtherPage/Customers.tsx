@@ -379,12 +379,12 @@ const Customers: React.FC = () => {
   };
 
   return (
-    <div className="grid grid-cols-12 gap-4 md:gap-6">
+    <div className="grid grid-cols-12 gap-4 md:gap-6 p-6">
       <div className="col-span-12 space-y-6">
         {/* Header and Search */}
         <div className="flex justify-between items-start mb-8">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">Customer Management</h1>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Customer Management</h1>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Manage your customers efficiently</p>
           </div>
           <div className="flex items-center space-x-4">
