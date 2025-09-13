@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setProfile(null);
             navigate('/signin', { replace: true });
           }
-        } catch (error) {
+        } catch (error:any) {
           // API call failed, assume token is invalid
           localStorage.removeItem('token');
           localStorage.removeItem('profile');
