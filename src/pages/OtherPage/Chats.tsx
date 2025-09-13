@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import CustomerList from './CustomerList';
 import AssignChat from './assignChat';
+import { sendWhatsAppMessage, getChats, searchChats } from '../../services/api/whatsappService';
+import { useAuth } from '../../context/AuthContext';
 
 interface Customer {
   id: string;
   name: string;
   phone: string;
+  countryCode?: string;
   lastMessage: string;
   lastTime: string;
   unread: number;
@@ -18,11 +21,15 @@ interface Customer {
 }
 
 interface Message {
-  id: string;
-  from: 'me' | 'them';
+  _id?: string;
+  id?: string;
+  from: 'me' | 'them' | string;
+  to?: string;
   type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'contact';
-  content: string;
+  content: string | { text?: string; media?: string };
   time: string;
+  createdAt?: string;
+  status?: string;
 }
 
 interface StarredMessage {
@@ -54,6 +61,7 @@ const starredMessages: StarredMessage[] = [
 ];
 
 const Chats = () => {
+  const { token, profile } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
@@ -70,6 +78,9 @@ const Chats = () => {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const Toast = Swal.mixin({
     toast: true,
@@ -87,10 +98,85 @@ const Chats = () => {
     return nameParts[0][0].toUpperCase();
   };
 
+  const loadChatMessages = async (customerId: string) => {
+    if (!token) return;
+    
+    try {
+      const response = await getChats(customerId, token);
+      if (response.status === 200 && response.data) {
+        // Transform backend messages to frontend format
+        const transformedMessages: Message[] = response.data.docs.map((msg: any) => ({
+          _id: msg._id,
+          id: msg._id,
+          from: msg.from === customerId ? 'them' : 'me',
+          to: msg.to,
+          type: msg.content?.media ? 'image' : 'text',
+          content: msg.content?.text || msg.content?.media || '',
+          time: new Date(msg.createdAt).toLocaleTimeString(),
+          createdAt: msg.createdAt,
+          status: msg.status
+        }));
+        setMessages(transformedMessages);
+      }
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+      // Fallback to dummy data if API fails
+      setMessages(dummyChats[customerId] || []);
+    }
+  };
+
+  const handleSearchChats = async (searchQuery: string) => {
+    if (!token || !selectedCustomer || !searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    try {
+      const response = await searchChats(selectedCustomer.id, searchQuery, token);
+      if (response.status === 200 && response.data) {
+        // Transform backend messages to frontend format
+        const transformedMessages: Message[] = response.data.map((msg: any) => ({
+          _id: msg._id,
+          id: msg._id,
+          from: msg.from === selectedCustomer.id ? 'them' : 'me',
+          to: msg.to,
+          type: msg.content?.media ? 'image' : 'text',
+          content: msg.content?.text || msg.content?.media || '',
+          time: new Date(msg.createdAt).toLocaleTimeString(),
+          createdAt: msg.createdAt,
+          status: msg.status
+        }));
+        setSearchResults(transformedMessages);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching chats:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
-    setMessages(dummyChats[customer.id] || []);
+    loadChatMessages(customer.id);
   };
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (chatSearchQuery.trim()) {
+        handleSearchChats(chatSearchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [chatSearchQuery]);
 
   const handleAssignmentComplete = () => {
     // Refresh customer data or perform any updates after assignment
@@ -175,7 +261,7 @@ const Chats = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE}/add-customer`,
+        `${import.meta.env.VITE_API_BASE}/create-customer`,
         {
           name: form.name,
           phone: `+${form.countryCode}${form.phone}`,
@@ -199,43 +285,95 @@ const Chats = () => {
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage) return;
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      from: 'me',
-      type: 'text',
-      content: newMessage,
-      time: new Date().toLocaleTimeString(),
-    };
-    setMessages([...messages, newMsg]);
-    setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c)));
-    setNewMessage('');
+    if (!newMessage || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) return;
+    
+    setIsSendingMessage(true);
+    
+    try {
+      // Create the message object first to show it immediately
+      const newMsg: Message = {
+        id: Date.now().toString(),
+        from: 'me',
+        type: 'text',
+        content: newMessage,
+        time: new Date().toLocaleTimeString(),
+      };
+      
+      // Add message to UI immediately for better UX
+      setMessages([...messages, newMsg]);
+      setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c)));
+      
+      // Call WhatsApp API
+      // Send only the phone number without country code
+      const phoneNumber = selectedCustomer.phone;
+      
+      console.log('Phone number being sent:', phoneNumber);
+      
+      const response = await sendWhatsAppMessage(
+        profile.company._id,        // companyId
+        phoneNumber,                 // phoneNumber (only phone, no country code)
+        newMessage,                  // message
+        selectedCustomer.id,         // customerId
+        profile._id,                 // userId (user's _id from profile)
+        false,                       // isPrivate (default false)
+        token                        // token
+      );
+      
+      if (response.success) {
+        Toast.fire({
+          icon: 'success',
+          title: 'Message sent successfully!'
+        });
+        // Reload chat messages to show the latest messages
+        if (selectedCustomer) {
+          await loadChatMessages(selectedCustomer.id);
+        }
+      } else {
+        Toast.fire({
+          icon: 'error',
+          title: response.message || 'Failed to send message'
+        });
+      }
+      
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Toast.fire({
+        icon: 'error',
+        title: 'Failed to send message. Please try again.'
+      });
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   const renderMessage = (msg: Message) => {
     const isMe = msg.from === 'me';
+    const messageContent = typeof msg.content === 'string' ? msg.content : msg.content?.text || '';
     let content;
+    
     switch (msg.type) {
       case 'image':
-        content = <img src={msg.content} alt="Image" className="max-w-xs rounded-lg" />;
+        content = <img src={messageContent} alt="Image" className="max-w-xs rounded-lg" />;
         break;
       case 'video':
-        content = <video src={msg.content} controls className="max-w-xs rounded-lg" />;
+        content = <video src={messageContent} controls className="max-w-xs rounded-lg" />;
         break;
       case 'audio':
-        content = <audio src={msg.content} controls />;
+        content = <audio src={messageContent} controls />;
         break;
       case 'document':
-        content = <a href={msg.content} className="text-blue-500">{msg.content}</a>;
+        content = <a href={messageContent} className="text-blue-500">{messageContent}</a>;
         break;
       case 'contact':
-        content = <div className="bg-gray-100 p-2 rounded">{msg.content}</div>;
+        content = <div className="bg-gray-100 p-2 rounded">{messageContent}</div>;
         break;
       default:
-        content = <p>{msg.content}</p>;
+        content = <p>{messageContent}</p>;
     }
+    
     return (
       <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
         <div className={`max-w-xs px-4 py-2 rounded-lg ${isMe ? 'bg-green-100 text-right' : 'bg-gray-100 text-left'}`}>
@@ -247,8 +385,6 @@ const Chats = () => {
   };
 
   const getMedia = (type: 'image' | 'video' | 'audio' | 'document') => messages.filter((m) => m.type === type);
-
-  const filteredMessages = messages.filter((msg) => msg.type === 'text' && chatSearchQuery && msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase()));
 
   return (
     <div className="flex max-h-[calc(100vh-77px)] overflow-hidden bg-gray-100 dark:bg-gray-900">
@@ -310,8 +446,29 @@ const Chats = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
                 className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white"
+                disabled={isSendingMessage}
               />
-              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-r-lg">Send</button>
+              <button 
+                type="submit" 
+                className={`px-4 py-2 text-white rounded-r-lg flex items-center ${
+                  isSendingMessage 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+                disabled={isSendingMessage || !newMessage.trim()}
+              >
+                {isSendingMessage ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  'Send'
+                )}
+              </button>
             </form>
           </>
         ) : (
@@ -532,9 +689,10 @@ const Chats = () => {
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Images</h4>
                       <div className="grid grid-cols-3 gap-2">
-                        {getMedia('image').slice(0, 4).map((m) => (
-                          <img key={m.id} src={m.content} alt="Image" className="w-full h-20 object-cover rounded" />
-                        ))}
+                        {getMedia('image').slice(0, 4).map((m) => {
+                          const imageSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
+                          return <img key={m.id} src={imageSrc} alt="Image" className="w-full h-20 object-cover rounded" />;
+                        })}
                       </div>
                     </div>
                   </div>
@@ -592,34 +750,42 @@ const Chats = () => {
                   <div className="space-y-4">
                     {selectedMediaType === 'image' && (
                       <div className="grid grid-cols-3 gap-2">
-                        {getMedia('image').map((m) => (
-                          <img key={m.id} src={m.content} alt="Image" className="w-full h-32 object-cover rounded" />
-                        ))}
+                        {getMedia('image').map((m) => {
+                          const imageSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
+                          return <img key={m.id} src={imageSrc} alt="Image" className="w-full h-32 object-cover rounded" />;
+                        })}
                       </div>
                     )}
                     {selectedMediaType === 'video' && (
                       <div className="grid grid-cols-3 gap-2">
-                        {getMedia('video').map((m) => (
-                          <video key={m.id} src={m.content} className="w-full h-32 object-cover rounded" controls />
-                        ))}
+                        {getMedia('video').map((m) => {
+                          const videoSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
+                          return <video key={m.id} src={videoSrc} className="w-full h-32 object-cover rounded" controls />;
+                        })}
                       </div>
                     )}
                     {selectedMediaType === 'audio' && (
                       <div className="space-y-2">
-                        {getMedia('audio').map((m) => (
-                          <div key={m.id}>
-                            <audio src={m.content} controls className="w-full" />
-                          </div>
-                        ))}
+                        {getMedia('audio').map((m) => {
+                          const audioSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
+                          return (
+                            <div key={m.id}>
+                              <audio src={audioSrc} controls className="w-full" />
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     {selectedMediaType === 'document' && (
                       <div className="space-y-2">
-                        {getMedia('document').map((m) => (
-                          <a key={m.id} href={m.content} className="block text-blue-500 dark:text-blue-400 mb-1">
-                            {m.content}
-                          </a>
-                        ))}
+                        {getMedia('document').map((m) => {
+                          const docSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
+                          return (
+                            <a key={m.id} href={docSrc} className="block text-blue-500 dark:text-blue-400 mb-1">
+                              {docSrc}
+                            </a>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -653,8 +819,13 @@ const Chats = () => {
                 className="w-full p-2 border rounded-lg mb-4 dark:bg-gray-800 dark:text-white dark:border-gray-600"
               />
               <div className="space-y-4">
-                {chatSearchQuery && filteredMessages.length > 0 ? (
-                  filteredMessages.map((msg) => renderMessage(msg))
+                {isSearching ? (
+                  <div className="flex justify-center items-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
+                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Searching...</span>
+                  </div>
+                ) : chatSearchQuery && searchResults.length > 0 ? (
+                  searchResults.map((msg) => renderMessage(msg))
                 ) : chatSearchQuery ? (
                   <p className="text-sm text-gray-600 dark:text-gray-400">No messages found.</p>
                 ) : (

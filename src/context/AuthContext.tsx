@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router';
 import { apiCall } from '../services/api/auth'; // Import apiCall from your auth service
 
 interface UserProfile {
+  _id?: string;
   email: string;
   profile: {
     firstName: string;

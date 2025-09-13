@@ -22,17 +22,27 @@ export const sendWhatsAppMessage = async (
   companyId: string,
   phoneNumber: string,
   message: string,
+  customerId: string,
+  userId: string,
+  isPrivate: boolean = false,
   token: string
 ): Promise<WhatsAppMessageResponse> => {
   try {
+    const requestBody = {
+      phoneNumber,
+      message,
+      customerId,
+      userId,
+      isPrivate
+    };
+    
+    console.log('Sending WhatsApp message with:', requestBody);
+    
     const response = await apiCall(
       `/whatsapp/${companyId}/send-message`,
       {
         method: 'POST',
-        body: JSON.stringify({
-          phoneNumber,
-          message
-        })
+        body: JSON.stringify(requestBody)
       },
       token
     );
@@ -135,6 +145,60 @@ export const getQRCode = async (
     return response;
   } catch (error) {
     console.error('Error getting QR code:', error);
+    throw error;
+  }
+};
+
+export const getChats = async (
+  customerId: string,
+  token: string,
+  page: number = 1,
+  limit: number = 50,
+  sort: number = -1
+): Promise<any> => {
+  try {
+    const response = await apiCall(
+      '/get-chats',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          customerId,
+          page,
+          limit,
+          sort
+        })
+      },
+      token
+    );
+    
+    return response;
+  } catch (error) {
+    console.error('Error getting chats:', error);
+    throw error;
+  }
+};
+
+export const searchChats = async (
+  customerId: string,
+  searchQuery: string,
+  token: string
+): Promise<any> => {
+  try {
+    const response = await apiCall(
+      '/search-chats',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          customerId,
+          search: searchQuery
+        })
+      },
+      token
+    );
+    
+    return response;
+  } catch (error) {
+    console.error('Error searching chats:', error);
     throw error;
   }
 };
