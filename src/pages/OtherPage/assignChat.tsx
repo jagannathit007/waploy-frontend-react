@@ -290,7 +290,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
         className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-white border border-transparent rounded-full  focus:outline-none  disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 hover:text-white"
       >
         <svg
-          className="h-6 w-6 text-gray-500 hover:text-gray-700"
+          className="h-6 w-6 text-emerald-600 hover:text-emerald-700"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
