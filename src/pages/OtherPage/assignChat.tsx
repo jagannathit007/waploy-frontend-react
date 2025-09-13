@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Swal from "sweetalert2";
 import { apiCall } from "../../services/api/auth";
+
 // Define interfaces for type safety
 interface Team {
   _id: string;
@@ -44,7 +45,7 @@ const Toast = Swal.mixin({
 
 const AssignChat: React.FC<AssignChatProps> = ({
   selectedCustomer,
-  onAssignmentComplete,
+  // onAssignmentComplete,
 }) => {
   const { token } = useAuth();
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -53,12 +54,29 @@ const AssignChat: React.FC<AssignChatProps> = ({
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentAssignee, setCurrentAssignee] = useState<TeamMember | null>(null);
 
   const [assignForm, setAssignForm] = useState({
     teamId: "",
     teamMemberIds: [] as string[],
     chatAssigneeId: "",
   });
+
+  // Fetch assignment details when component mounts or selectedCustomer changes
+  useEffect(() => {
+    if (selectedCustomer) {
+      fetchAssignmentDetails();
+    } else {
+      setCurrentAssignee(null);
+      setIsEditMode(false);
+      setAssignForm({
+        teamId: "",
+        teamMemberIds: [],
+        chatAssigneeId: "",
+      });
+    }
+  }, [selectedCustomer]);
 
   // Fetch teams when modal opens
   useEffect(() => {
@@ -88,6 +106,8 @@ const AssignChat: React.FC<AssignChatProps> = ({
     }
   }, [assignForm.teamMemberIds]);
 
+
+  
   const fetchTeams = async () => {
     setLoadingTeams(true);
     try {
@@ -155,6 +175,63 @@ const AssignChat: React.FC<AssignChatProps> = ({
       setLoadingMembers(false);
     }
   };
+
+ const fetchAssignmentDetails = async () => {
+  if (!selectedCustomer) return;
+
+  setLoading(true);
+  try {
+    const response = await apiCall(
+      "/get-customer-assignment-details",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+        }),
+      },
+      token ?? undefined
+    );
+
+    if (response) {
+      const data = response.data;
+
+      if (data && data.assignedTeam && data.assignedTeam._id) {
+        // ✅ Edit mode
+        setIsEditMode(true);
+        setAssignForm({
+          teamId: data.assignedTeam._id || "",
+          teamMemberIds: data.assignedTeamMembers?.map((m: any) => m._id) || [],
+          chatAssigneeId: data.chatSession?.teamMember?._id || "",
+        });
+        setCurrentAssignee(data.chatSession?.teamMember || null);
+      } else {
+        // ✅ No assignment found → reset form
+        setIsEditMode(false);
+        resetForm();
+        setAssignForm({
+          teamId: "",
+          teamMemberIds: [],
+          chatAssigneeId: "",
+        });
+        setCurrentAssignee(null);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch assignment details:", error);
+    Toast.fire({
+      icon: "error",
+      title: "Failed to load assignment details",
+    });
+    resetForm();
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleTeamMemberToggle = (memberId: string) => {
     setAssignForm((prev) => {
@@ -232,15 +309,14 @@ const AssignChat: React.FC<AssignChatProps> = ({
       if (response && response.data) {
         Toast.fire({
           icon: "success",
-          title: "Chat assigned successfully!",
+          title: isEditMode ? "Chat assignment updated successfully!" : "Chat assigned successfully!",
         });
 
-        resetForm();
+        // Refresh assignee details after successful assignment
+        // window.location.reload();
+        fetchAssignmentDetails();
+        resetAssignForm();
         setShowAssignModal(false);
-
-        if (onAssignmentComplete) {
-          onAssignmentComplete();
-        }
       }
     } catch (error) {
       console.error("Assignment error:", error);
@@ -256,6 +332,64 @@ const AssignChat: React.FC<AssignChatProps> = ({
     }
   };
 
+  // const handleRemoveAssignment = async () => {
+  //   if (!selectedCustomer) return;
+
+  //   Swal.fire({
+  //     title: "Are you sure?",
+  //     text: "This will remove the team assignment from the customer.",
+  //     icon: "warning",
+  //     showCancelButton: true,
+  //     confirmButtonColor: "#d33",
+  //     cancelButtonColor: "#3085d6",
+  //     confirmButtonText: "Yes, remove it!",
+  //   }).then(async (result) => {
+  //     if (result.isConfirmed) {
+  //       setLoading(true);
+  //       try {
+  //         const response = await apiCall(
+  //           "/remove-team-assignment",
+  //           {
+  //             method: "POST",
+  //             headers: {
+  //               "Content-Type": "application/json",
+  //               Authorization: `Bearer ${token}`,
+  //             },
+  //             body: JSON.stringify({
+  //               customerId: selectedCustomer.id,
+  //             }),
+  //           },
+  //           token ?? undefined
+  //         );
+
+  //         if (response) {
+  //           Toast.fire({
+  //             icon: "success",
+  //             title: "Team assignment removed successfully!",
+  //           });
+
+  //           // Refresh assignee details after removal
+  //           await fetchAssignmentDetails();
+  //           resetForm();
+  //           setShowAssignModal(false);
+  //           setIsEditMode(false);
+  //         }
+  //       } catch (error) {
+  //         console.error("Remove assignment error:", error);
+  //         Toast.fire({
+  //           icon: "error",
+  //           title:
+  //             error instanceof Error && error.message
+  //               ? error.message
+  //               : "Failed to remove assignment",
+  //         });
+  //       } finally {
+  //         setLoading(false);
+  //       }
+  //     }
+  //   });
+  // };
+
   const resetForm = () => {
     setAssignForm({
       teamId: "",
@@ -266,9 +400,18 @@ const AssignChat: React.FC<AssignChatProps> = ({
     setTeamMembers([]);
   };
 
+  const resetAssignForm = () => {
+  setAssignForm({
+    teamId: '',
+    teamMemberIds: [],
+    chatAssigneeId: '',
+  });
+};
+
+
   const handleModalClose = () => {
     setShowAssignModal(false);
-    resetForm();
+    // resetForm();
   };
 
   const getSelectedTeamMembers = () => {
@@ -277,17 +420,29 @@ const AssignChat: React.FC<AssignChatProps> = ({
     );
   };
 
-  const getTeamMemberFullName = (member: TeamMember) => {
+  const getTeamMemberFullName = (member: TeamMember | undefined | null) => {
+    if (!member) return "Not Assigned";
     return `${member.profile.firstName} ${member.profile.lastName}`;
   };
 
   return (
     <>
+      {/* Chat Assignee Display */}
+      {selectedCustomer && (
+        <div className="flex items-center space-x-2">
+          {/* <span className="font-medium text-emerald-700 dark:text-emerald-400">
+            Chat Assignee:
+          </span> */}
+          <p className="text-emerald-800 dark:text-emerald-300">
+            {loading ? "Loading..." : getTeamMemberFullName(currentAssignee)}
+          </p>
+        </div>
+      )}
       {/* Assign Chat Button */}
       <button
         onClick={() => setShowAssignModal(true)}
         disabled={!selectedCustomer}
-        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-white border border-transparent rounded-full  focus:outline-none  disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 hover:text-white"
+        className="inline-flex items-center px-4 py-2 text-sm text-white bg-white border border-transparent rounded-full focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 hover:text-white"
       >
         <svg
           className="h-6 w-6 text-emerald-600 hover:text-emerald-700"
@@ -329,10 +484,11 @@ const AssignChat: React.FC<AssignChatProps> = ({
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-gray-700">
-                      Assign Chat
+                      {isEditMode ? "Edit Chat Assignment" : "Assign Chat"}
                     </h2>
                     <p className="text-gray-500 text-sm">
-                      Assign {selectedCustomer?.name} to your team
+                      {isEditMode ? "Update assignment for" : "Assign"}{" "}
+                      {selectedCustomer?.name || "Customer"} to your team
                     </p>
                   </div>
                 </div>
@@ -387,7 +543,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                               teamId: e.target.value,
                             })
                           }
-                          className="w-full px-3 py-2 text-sm border-1 border-gray-200 dark:border-gray-600 rounded-lg  focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 dark:bg-gray-800 dark:text-white text-base"
+                          className="w-full px-3 py-2 text-sm border-1 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 dark:bg-gray-800 dark:text-white text-base"
                           required
                         >
                           <option value="">Choose a team...</option>
@@ -440,7 +596,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                       {!assignForm.teamId ? (
                         <select
                           disabled
-                          className="w-full px-3 py-2 text-sm border-1 border-gray-200 dark:border-gray-600 rounded-lg  focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 dark:bg-gray-800 dark:text-white text-base"
+                          className="w-full px-3 py-2 text-sm border-1 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 dark:bg-gray-800 dark:text-white text-base"
                         >
                           <option>Select a team first...</option>
                         </select>
@@ -463,7 +619,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                                   strokeLinejoin="round"
                                   strokeWidth={2}
                                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                                />{" "}
+                                />
                               </svg>
                               No team members found
                             </div>
@@ -536,12 +692,10 @@ const AssignChat: React.FC<AssignChatProps> = ({
                               chatAssigneeId: e.target.value,
                             })
                           }
-                          className="w-full px-3 py-2 text-sm border-1 border-gray-200 dark:border-gray-600 rounded-lg  focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 dark:bg-gray-800 dark:text-white text-base"
+                          className="w-full px-3 py-2 text-sm border-1 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 dark:bg-gray-800 dark:text-white text-base"
                           required
                         >
-                          <option value="">
-                            Choose team member for chat...
-                          </option>
+                          <option value="">Choose team member for chat...</option>
                           {getSelectedTeamMembers().map((member) => (
                             <option key={member._id} value={member._id}>
                               {getTeamMemberFullName(member)} - {member.email}
@@ -581,7 +735,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                               Customer:
                             </span>
                             <p className="text-emerald-800 dark:text-emerald-300 mt-1">
-                              {selectedCustomer?.name}
+                              {selectedCustomer?.name || "Unknown"}
                             </p>
                           </div>
                           <div>
@@ -589,10 +743,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                               Team:
                             </span>
                             <p className="text-emerald-800 dark:text-emerald-300 mt-1">
-                              {
-                                teams.find((t) => t._id === assignForm.teamId)
-                                  ?.name
-                              }
+                              {teams.find((t) => t._id === assignForm.teamId)?.name || "Unknown"}
                             </p>
                           </div>
                           <div>
@@ -609,9 +760,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                             </span>
                             <p className="text-emerald-800 dark:text-emerald-300 mt-1">
                               {getTeamMemberFullName(
-                                teamMembers.find(
-                                  (m) => m._id === assignForm.chatAssigneeId
-                                )!
+                                teamMembers.find((m) => m._id === assignForm.chatAssigneeId)
                               )}
                             </p>
                           </div>
@@ -647,6 +796,29 @@ const AssignChat: React.FC<AssignChatProps> = ({
 
               {/* Action Buttons */}
               <div className="flex justify-end space-x-4 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                {/* {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAssignment}
+                    disabled={loading}
+                    className="px-6 py-2 text-base font-medium text-white bg-gradient-to-r from-red-600 to-red-700 border border-transparent rounded-2xl hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 shadow-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
+                  >
+                    <svg
+                      className="h-5 w-5 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    Remove Assignment
+                  </button>
+                )} */}
                 <button
                   type="button"
                   onClick={handleModalClose}
@@ -667,7 +839,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                      Assigning...
+                      {isEditMode ? "Updating..." : "Assigning..."}
                     </>
                   ) : (
                     <>
@@ -684,7 +856,7 @@ const AssignChat: React.FC<AssignChatProps> = ({
                           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      Assign Chat
+                      {isEditMode ? "Update Assignment" : "Assign Chat"}
                     </>
                   )}
                 </button>
