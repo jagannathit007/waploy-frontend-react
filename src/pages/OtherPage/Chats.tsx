@@ -1,13 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Swal from 'sweetalert2';
-import TextMessage from '../medias/TextMessage';
-import VideoMessage from '../medias/VideoMessage';
-import AudioMessage from '../medias/AudioMessage';
-import DocumentMessage from '../medias/DocumentMessage';
-import ImageGroup from '../medias/ImageGroup';
-import ContactMessage from '../medias/ContactMessage';
-import { useAuth } from '../../context/AuthContext';
-import { sendWhatsAppMessage } from '../../services/api/whatsappService';
 import axios from 'axios';
 import CustomerList from './CustomerList';
 import AssignChat from './assignChat';
@@ -25,18 +17,12 @@ interface Customer {
   label?: string;
 }
 
-export interface Message {
+interface Message {
   id: string;
   from: 'me' | 'them';
   type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'contact';
   content: string;
   time: string;
-  isForwarded?: boolean;
-  meta?: {
-    pages?: number;
-    size?: string;
-    duration?: string;
-  };
 }
 
 interface StarredMessage {
@@ -44,41 +30,6 @@ interface StarredMessage {
   content: string;
 }
 
-// Dummy data for customers
-const dummyCustomers: Customer[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    phone: '+919773050108',
-    lastMessage: 'Hey, how are you?',
-    lastTime: '10:45 AM',
-    unread: 2,
-    pinned: true,
-    isBlocked: false,
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    phone: '+1 987-654-3210',
-    lastMessage: 'Meeting at 2 PM',
-    lastTime: 'Yesterday',
-    unread: 0,
-    pinned: false,
-    isBlocked: false,
-  },
-  {
-    id: '3',
-    name: 'Alice',
-    phone: '+1 555-123-4567',
-    lastMessage: 'Check the report',
-    lastTime: '2 days ago',
-    unread: 1,
-    pinned: false,
-    isBlocked: true,
-  },
-];
-
-// Dummy chat messages for each customer
 const dummyChats: Record<string, Message[]> = {
   '1': [
     { id: 'm1', from: 'them', type: 'text', content: 'Hello!', time: '10:30 AM' },
@@ -101,7 +52,6 @@ const starredMessages: StarredMessage[] = [
   { id: 1, content: 'Message 1' },
   { id: 2, content: 'Message 2' },
 ];
-
 
 const Chats = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -129,14 +79,6 @@ const Chats = () => {
     timerProgressBar: true,
   });
 
-  // Get company ID from user context
-  useEffect(() => {
-    if (profile?.company?._id) {
-      setCompanyId(profile.company._id);
-    }
-  }, [profile]);
-
-  // Function to get initials from name
   const getInitials = (name: string): string => {
     const nameParts = name.trim().split(' ');
     if (nameParts.length > 1) {
@@ -257,127 +199,19 @@ const Chats = () => {
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedCustomer || !companyId || !token) {
-      Toast.fire({ 
-        icon: 'warning', 
-        title: 'Please select a customer and ensure WhatsApp is connected' 
-      });
-      return;
-    }
-    
-    setIsSending(true);
-    
-    // Create optimistic message for immediate UI update
-    const tempMsg: Message = {
-      id: `temp-${Date.now()}`,
+    if (!newMessage) return;
+    const newMsg: Message = {
+      id: Date.now().toString(),
       from: 'me',
       type: 'text',
       content: newMessage,
       time: new Date().toLocaleTimeString(),
     };
-    
-    // Add message to UI immediately
-    setMessages(prev => [...prev, tempMsg]);
-    setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: tempMsg.time } : c)));
-    
-    const messageToSend = newMessage;
-    setNewMessage(''); // Clear input immediately
-    
-    try {
-      // Call WhatsApp API
-      const response = await sendWhatsAppMessage(
-        companyId,
-        selectedCustomer.phone,
-        messageToSend,
-        token
-      );
-      
-      if (response.success) {
-        // Update the temporary message with real message ID
-        const realMsg: Message = {
-          ...tempMsg,
-          id: response.messageId || tempMsg.id,
-        };
-        
-        setMessages(prev => 
-          prev.map(msg => msg.id === tempMsg.id ? realMsg : msg)
-        );
-        
-        Toast.fire({ 
-          icon: 'success', 
-          title: 'Message sent successfully!' 
-        });
-      } else {
-        throw new Error(response.message || 'Failed to send message');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Remove the temporary message on error
-      setMessages(prev => prev.filter(msg => msg.id !== tempMsg.id));
-      
-      // Restore the message in input
-      setNewMessage(messageToSend);
-      
-      Toast.fire({ 
-        icon: 'error', 
-        title: error instanceof Error ? error.message : 'Failed to send message' 
-      });
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const renderMessages = () => {
-    const groups: { type: 'imageGroup' | 'single'; messages?: Message[]; message?: Message }[] = [];
-    let currentImageGroup: Message[] = [];
-
-    messages.forEach((msg, index) => {
-      const previous = messages[index - 1];
-
-      if (msg.type === 'image' && previous?.type === 'image' && previous.from === msg.from) {
-        currentImageGroup.push(msg);
-      } else {
-        if (currentImageGroup.length > 0) {
-          groups.push({ type: 'imageGroup', messages: currentImageGroup });
-          currentImageGroup = [];
-        }
-        if (msg.type === 'image') {
-          currentImageGroup.push(msg);
-        } else {
-          groups.push({ type: 'single', message: msg });
-        }
-      }
-    });
-
-    if (currentImageGroup.length > 0) {
-      groups.push({ type: 'imageGroup', messages: currentImageGroup });
-    }
-
-    return groups.map((group, idx) => {
-      if (group.type === 'imageGroup' && group.messages) {
-        return <ImageGroup key={idx} messages={group.messages} />;
-      } else if (group.message) {
-        const isMe = group.message.from === 'me';
-        switch (group.message.type) {
-          case 'text':
-            return <TextMessage key={idx} msg={group.message} isMe={isMe} />;
-          case 'video':
-            return <VideoMessage key={idx} msg={group.message} isMe={isMe} />;
-          case 'audio':
-            return <AudioMessage key={idx} msg={group.message} isMe={isMe} />;
-          case 'document':
-            return <DocumentMessage key={idx} msg={group.message} isMe={isMe} />;
-          case 'contact':
-            return <ContactMessage key={idx} msg={group.message} isMe={isMe} />;
-          default:
-            return null;
-        }
-      }
-      return null;
-    });
+    setMessages([...messages, newMsg]);
+    setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c)));
+    setNewMessage('');
   };
 
   const renderMessage = (msg: Message) => {
@@ -441,10 +275,7 @@ const Chats = () => {
                   {getInitials(selectedCustomer.name)}
                 </div>
                 <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-semibold">{selectedCustomer.name}</h3>
-                    <div className={`w-2 h-2 rounded-full ${whatsappConnected ? 'bg-green-500' : 'bg-red-500'}`} title={whatsappConnected ? 'WhatsApp Connected' : 'WhatsApp Disconnected'}></div>
-                  </div>
+                  <h3 className="font-semibold">{selectedCustomer.name}</h3>
                   <p className="text-sm text-gray-600">{selectedCustomer.phone}</p>
                 </div>
               </div>
@@ -470,8 +301,7 @@ const Chats = () => {
               </div>
             </div>
 
-            {/* Chat Body */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">{renderMessages()}</div>
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">{messages.map(renderMessage)}</div>
 
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex">
               <input
@@ -479,31 +309,9 @@ const Chats = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                disabled={isSending}
-                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white disabled:opacity-50"
+                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white"
               />
-              <button 
-                type="submit" 
-                disabled={isSending || !newMessage.trim()}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-r-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                {isSending ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Sending...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Send</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  </>
-                )}
-              </button>
+              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-r-lg">Send</button>
             </form>
           </>
         ) : (
