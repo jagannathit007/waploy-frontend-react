@@ -1,8 +1,9 @@
-import { useState } from "react";
-import Swal from "sweetalert2";
-import AssignChat from "./assignChat";
+import { useState } from 'react';
+import Swal from 'sweetalert2';
+import axios from 'axios';
+import CustomerList from './CustomerList';
+import AssignChat from './assignChat';
 
-// Define interfaces for type safety
 interface Customer {
   id: string;
   name: string;
@@ -29,41 +30,6 @@ interface StarredMessage {
   content: string;
 }
 
-// Dummy data for customers
-const dummyCustomers: Customer[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    phone: "+1 123-456-7890",
-    lastMessage: "Hey, how are you?",
-    lastTime: "10:45 AM",
-    unread: 2,
-    pinned: true,
-    isBlocked: false,
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    phone: "+1 987-654-3210",
-    lastMessage: "Meeting at 2 PM",
-    lastTime: "Yesterday",
-    unread: 0,
-    pinned: false,
-    isBlocked: false,
-  },
-  {
-    id: "3",
-    name: "Alice",
-    phone: "+1 555-123-4567",
-    lastMessage: "Check the report",
-    lastTime: "2 days ago",
-    unread: 1,
-    pinned: false,
-    isBlocked: true,
-  },
-];
-
-// Dummy chat messages for each customer
 const dummyChats: Record<string, Message[]> = {
   "1": [
     {
@@ -142,12 +108,10 @@ const starredMessages: StarredMessage[] = [
 ];
 
 const Chats = () => {
-  const [customers, setCustomers] = useState<Customer[]>(dummyCustomers);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  );
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -158,7 +122,6 @@ const Chats = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [showMenu, setShowMenu] = useState<null | string>(null); // Fixed type
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [showAllStarred, setShowAllStarred] = useState(false);
   const [showAllMedia, setShowAllMedia] = useState(false);
@@ -166,7 +129,8 @@ const Chats = () => {
     "image" | "video" | "audio" | "document"
   >("image");
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [refresh, setRefresh] = useState(0);
 
   const Toast = Swal.mixin({
     toast: true,
@@ -176,7 +140,6 @@ const Chats = () => {
     timerProgressBar: true,
   });
 
-  // Function to get initials from name
   const getInitials = (name: string): string => {
     const nameParts = name.trim().split(" ");
     if (nameParts.length > 1) {
@@ -185,63 +148,116 @@ const Chats = () => {
     return nameParts[0][0].toUpperCase();
   };
 
-  const filteredCustomers = customers
-    .filter(
-      (c) =>
-        (filter === "all" || (filter === "unread" && c.unread > 0)) &&
-        c.name.toLowerCase().includes(search.toLowerCase())
-    )
-    .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setMessages(dummyChats[customer.id] || []);
-    setShowMenu(null);
   };
 
-  const handlePin = (id: string) => {
-    setCustomers(
-      customers.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c))
-    );
-    setShowMenu(null);
+  const handleAssignmentComplete = () => {
+    // Refresh customer data or perform any updates after assignment
     Toast.fire({
       icon: "success",
-      title: `Customer ${
-        customers.find((c) => c.id === id)!.pinned ? "unpinned" : "pinned"
-      }`,
+      title: "Chat assignment completed successfully!",
     });
+    // You can add any additional logic here like refreshing customer list
   };
 
-  const handleBlock = (id: string) => {
-    setCustomers(
-      customers.map((c) =>
-        c.id === id ? { ...c, isBlocked: !c.isBlocked } : c
-      )
-    );
-    Toast.fire({ icon: "success", title: "Customer block status updated" });
+  const handlePin = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const customer = customers.find((c) => c.id === id);
+      const response = await axios.put(
+        `${import.meta.env.VITE_API_BASE}/update-customer/${id}`,
+        { pinned: !customer?.pinned },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        setCustomers(customers.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)));
+        Toast.fire({ icon: 'success', title: `Customer ${customer?.pinned ? 'unpinned' : 'pinned'}` });
+      }
+    } catch (error) {
+      console.error('Error pinning customer:', error);
+      Toast.fire({ icon: 'error', title: 'Failed to pin customer' });
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setCustomers(customers.filter((c) => c.id !== id));
-    if (selectedCustomer?.id === id) setSelectedCustomer(null);
-    Toast.fire({ icon: "success", title: "Customer deleted" });
+  const handleBlock = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const customer = customers.find((c) => c.id === id);
+      const response = await axios.put(
+        `${import.meta.env.VITE_API_BASE}/update-customer/${id}`,
+        { isBlocked: !customer?.isBlocked },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        setCustomers(customers.map((c) => (c.id === id ? { ...c, isBlocked: !c.isBlocked } : c)));
+        Toast.fire({ icon: 'success', title: 'Customer block status updated' });
+      }
+    } catch (error) {
+      console.error('Error blocking customer:', error);
+      Toast.fire({ icon: 'error', title: 'Failed to update block status' });
+    }
   };
 
-  const handleAddCustomer = (e: React.FormEvent) => {
+  const handleDelete = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(
+        `${import.meta.env.VITE_API_BASE}/delete-customer/${id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        setCustomers(customers.filter((c) => c.id !== id));
+        if (selectedCustomer?.id === id) setSelectedCustomer(null);
+        Toast.fire({ icon: 'success', title: 'Customer deleted' });
+        setRefresh((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      Toast.fire({ icon: 'error', title: 'Failed to delete customer' });
+    }
+  };
+
+  const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newCustomer: Customer = {
-      id: Date.now().toString(),
-      ...form,
-      lastMessage: "",
-      lastTime: "",
-      unread: 0,
-      pinned: false,
-      isBlocked: false,
-    };
-    setCustomers([...customers, newCustomer]);
-    setShowAddForm(false);
-    setForm({ name: "", countryCode: "", phone: "", email: "" });
-    Toast.fire({ icon: "success", title: "Customer added" });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_BASE}/add-customer`,
+        {
+          name: form.name,
+          phone: `+${form.countryCode}${form.phone}`,
+          email: form.email,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        setShowAddForm(false);
+        setForm({ name: '', countryCode: '', phone: '', email: '' });
+        Toast.fire({ icon: 'success', title: 'Customer added' });
+        setRefresh((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error adding customer:', error);
+      Toast.fire({ icon: 'error', title: 'Failed to add customer' });
+    }
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -265,15 +281,7 @@ const Chats = () => {
     setNewMessage("");
   };
 
-  // Add this function inside your Chats component
-  const handleAssignmentComplete = () => {
-    // Refresh customer data or perform any updates after assignment
-    Toast.fire({
-      icon: "success",
-      title: "Chat assignment completed successfully!",
-    });
-    // You can add any additional logic here like refreshing customer list
-  };
+
 
   const renderMessage = (msg: Message) => {
     const isMe = msg.from === "me";
@@ -322,129 +330,27 @@ const Chats = () => {
   const getMedia = (type: "image" | "video" | "audio" | "document") =>
     messages.filter((m) => m.type === type);
 
-  // Filter messages based on search query
-  const filteredMessages = messages.filter(
-    (msg) =>
-      msg.type === "text" &&
-      chatSearchQuery &&
-      msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase())
-  );
+  const filteredMessages = messages.filter((msg) => msg.type === 'text' && chatSearchQuery && msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase()));
 
   return (
     <div className="flex max-h-[calc(100vh-77px)] overflow-hidden bg-gray-100 dark:bg-gray-900">
-      {/* Left Sidebar */}
-      <div className="w-1/4 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
-        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Chats
-            </h2>
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm"
-            >
-              Add Customer
-            </button>
-          </div>
-          <input
-            type="text"
-            placeholder="Search customers..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full p-2 border rounded-lg mb-2 dark:bg-gray-700 dark:text-white"
-          />
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-1 py-0 rounded-lg text-[12px] ${
-                filter === "all"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white"
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter("unread")}
-              className={`px-1 py-0 rounded-lg text-[12px] ${
-                filter === "unread"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white"
-              }`}
-            >
-              Unread
-            </button>
-          </div>
-        </div>
-        <div className="overflow-y-auto h-[calc(100vh-235px)]">
-          {filteredCustomers.map((customer) => (
-            <div
-              key={customer.id}
-              onClick={() => handleSelectCustomer(customer)}
-              className={`flex items-center px-3 py-2 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                selectedCustomer?.id === customer.id
-                  ? "bg-gray-100 dark:bg-gray-600"
-                  : ""
-              }`}
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mr-3 text-lg font-semibold">
-                {getInitials(customer.name)}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between">
-                  <h3 className="font-semibold">{customer.name}</h3>
-                </div>
-                <p className="text-sm text-gray-600 truncate">
-                  {customer.lastMessage}
-                </p>
-              </div>
-              <div className="flex flex-col items-end">
-                <div className="flex items-center">
-                  {customer.unread > 0 && (
-                    <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full mb-1">
-                      {customer.unread}
-                    </span>
-                  )}
-                  {customer.pinned && (
-                    <span className="text-sm text-gray-500 ml-1 mb-1">📌</span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-500">
-                  {customer.lastTime}
-                </span>
-              </div>
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(showMenu === customer.id ? null : customer.id);
-                  }}
-                  className="ml-2 text-gray-500"
-                >
-                  ⋯
-                </button>
-                {showMenu === customer.id && (
-                  <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 border rounded-lg shadow-lg z-10">
-                    <button
-                      onClick={() => handlePin(customer.id)}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      <span className="mr-2">📌</span>{" "}
-                      {customer.pinned ? "Unpin" : "Pin"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <CustomerList
+        customers={customers}
+        setCustomers={setCustomers}
+        search={search}
+        setSearch={setSearch}
+        filter={filter}
+        setFilter={setFilter}
+        selectedCustomer={selectedCustomer}
+        handleSelectCustomer={handleSelectCustomer}
+        handlePin={handlePin}
+        onOpenAddForm={() => setShowAddForm(true)}
+        refresh={refresh}
+      />
 
-      {/* Right Chat Area */}
       <div className="w-3/4 flex flex-col">
         {selectedCustomer?.id ? (
           <>
-            {/* Chat Header */}
             <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex items-center justify-between">
               <div
                 className="flex items-center cursor-pointer"
@@ -460,13 +366,11 @@ const Chats = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
-                {/* AssignChat Component */}
+              <div className="flex items-center space-x-4">
                 <AssignChat
                   selectedCustomer={selectedCustomer}
                   onAssignmentComplete={handleAssignmentComplete}
                 />
-
                 <button
                   onClick={() => setShowSearchModal(true)}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-2 border border-gray-300 dark:border-gray-600 rounded-full"
@@ -495,16 +399,9 @@ const Chats = () => {
               </div>
             </div>
 
-            {/* Chat Body */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
-              {messages.map(renderMessage)}
-            </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">{messages.map(renderMessage)}</div>
 
-            {/* Message Input */}
-            <form
-              onSubmit={handleSendMessage}
-              className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex"
-            >
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex">
               <input
                 type="text"
                 value={newMessage}
@@ -532,7 +429,6 @@ const Chats = () => {
         )}
       </div>
 
-      {/* Add Customer Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-[#c0d9c740] bg-opacity-50 overflow-y-auto h-full w-full z-[999] flex items-center justify-center p-4">
           <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full mx-auto border border-gray-200 dark:border-gray-800 transform transition-all duration-300 scale-100">
@@ -714,7 +610,6 @@ const Chats = () => {
         </div>
       )}
 
-      {/* Profile Modal */}
       {showProfileModal && selectedCustomer?.id && (
         <div
           className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50"
@@ -1012,7 +907,6 @@ const Chats = () => {
         </div>
       )}
 
-      {/* Search Modal */}
       {showSearchModal && selectedCustomer?.id && (
         <div
           className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50"
