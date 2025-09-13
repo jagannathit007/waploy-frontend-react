@@ -5,6 +5,7 @@ interface Customer {
   id: string;
   name: string;
   phone: string;
+  countryCode?: string;
   lastMessage: string;
   lastTime: string;
   unread: number;

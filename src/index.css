@@ -3,6 +3,14 @@ layer(base);
 
 @import "tailwindcss";
 
+/* Custom styles for message text wrapping */
+.message-text {
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {

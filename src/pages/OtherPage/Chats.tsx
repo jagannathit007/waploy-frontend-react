@@ -1,20 +1,16 @@
-import { useState, useEffect } from "react";
-import Swal from "sweetalert2";
-import axios from "axios";
-import CustomerList from "./CustomerList";
-import AssignChat from "./assignChat";
-import { Send } from 'lucide-react';
-
-interface Label {
-  _id: string;
-  name: string;
-  description?: string;
-}
+import { useState, useEffect, useRef } from 'react';
+import Swal from 'sweetalert2';
+import axios from 'axios';
+import CustomerList from './CustomerList';
+import AssignChat from './assignChat';
+import { sendWhatsAppMessage, sendWhatsAppMedia, getChats, searchChats } from '../../services/api/whatsappService';
+import { useAuth } from '../../context/AuthContext';
 
 interface Customer {
   id: string;
   name: string;
   phone: string;
+  countryCode?: string;
   lastMessage: string;
   lastTime: string;
   unread: number;
@@ -25,11 +21,15 @@ interface Customer {
 }
 
 interface Message {
-  id: string;
-  from: "me" | "them";
-  type: "text" | "image" | "video" | "audio" | "document" | "contact";
+  _id?: string;
+  id?: string;
+  from: 'me' | 'them' | string;
+  to?: string;
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'contact';
   content: string;
   time: string;
+  createdAt?: string;
+  status?: string;
 }
 
 interface StarredMessage {
@@ -115,14 +115,11 @@ const starredMessages: StarredMessage[] = [
 ];
 
 const Chats = () => {
-  const [labels, setLabels] = useState<Label[]>([]);
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const { token, profile } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  );
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -140,8 +137,17 @@ const Chats = () => {
     "image" | "video" | "audio" | "document"
   >("image");
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [page, setPage] = useState(1); // Track pagination page
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // Track loading state for more data
+  const [scrollReference, setScrollReference] = useState<{ messageId: string, offset: number } | null>(null); // Track scroll reference
+  const [showMediaOptions, setShowMediaOptions] = useState(false); // Track media options visibility
+
+  const messageContainerRef = useRef<HTMLDivElement>(null);
 
   const Toast = Swal.mixin({
     toast: true,
@@ -246,50 +252,314 @@ const handleAssignLabels = async () => {
     return nameParts[0][0].toUpperCase();
   };
 
-  const handleSelectCustomer = async (customer: Customer) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE}/get-customer-by-id`,
-      { customerId: customer.id },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (response.data.status === 200 && response.data.data) {
-      const customerData = response.data.data;
-      setSelectedCustomer({
-        id: customerData._id,
-        name: customerData.name,
-        phone: customerData.phone,
-        email: customerData.email,
-        labels: customerData.labels || [],
-        lastMessage: customerData.lastChat || '',
-        lastTime: customerData.lastChatAt
-          ? new Date(customerData.lastChatAt).toLocaleTimeString()
-          : '',
-        unread: customer.unread || 0,
-        pinned: customer.pinned || false,
-        isBlocked: customer.isBlocked || false,
-      });
-      setMessages(dummyChats[customer.id] || []);
-    } else {
-      throw new Error('Failed to fetch customer details');
+  const loadChatMessages = async (customerId: string, pageNum: number = 1, isInitialLoad: boolean = false) => {
+    if (!token) return;
+
+    try {
+      const response = await getChats(customerId, token, pageNum, 20, -1); // page, limit, sort
+      if (response.status === 200 && response.data) {
+        console.log('Response data:', response.data);
+        console.log('Profile ID:', profile?._id);
+
+        const transformedMessages: Message[] = response.data.docs.map((msg: any) => {
+          const fromValue = msg.from === profile?._id ? 'me' : 'them';
+          console.log(`Transforming message - from: ${msg.from}, to: ${msg.to}, set to: ${fromValue}`);
+
+          // Determine message type and content
+          let messageType = 'text';
+          let messageContent = msg.content?.text || '';
+
+          if (msg.content?.media && msg.content.media.length > 0) {
+            const media = msg.content.media[0]; // Take first media item
+            messageType = media.type || 'image';
+            messageContent = media.url || '';
+          }
+
+          return {
+            _id: msg._id,
+            id: msg._id,
+            from: fromValue,
+            to: msg.to,
+            type: messageType,
+            content: messageContent,
+            time: new Date(msg.createdAt).toLocaleTimeString(),
+            createdAt: msg.createdAt,
+            status: msg.status
+          };
+        });
+
+        if (isInitialLoad) {
+          // Initial load: replace messages and scroll to bottom
+          setMessages(transformedMessages.reverse());
+          setScrollReference(null); // Clear reference for initial load
+          console.log('🚀 Initial load - transformed messages:', transformedMessages.length);
+        } else {
+          // Loading more: prepend older messages and maintain reference position
+          console.log('📥 Loading more messages, current reference:', scrollReference);
+
+          const container = messageContainerRef.current;
+          if (container) {
+            // Store current scroll position before updating
+            const prevScrollTop = container.scrollTop;
+            const prevScrollHeight = container.scrollHeight;
+
+            // Prepend new older messages
+            setMessages((prevMessages) => [...transformedMessages.reverse(), ...prevMessages]);
+            console.log('📥 Prepended', transformedMessages.length, 'older messages');
+
+            // Restore scroll position using height difference
+            requestAnimationFrame(() => {
+              if (container) {
+                const newScrollHeight = container.scrollHeight;
+                const heightDifference = newScrollHeight - prevScrollHeight;
+                const newScrollTop = prevScrollTop + heightDifference;
+
+                console.log('📍 Restoring scroll position:', {
+                  prevScrollTop,
+                  prevScrollHeight,
+                  newScrollHeight,
+                  heightDifference,
+                  newScrollTop
+                });
+
+                container.scrollTop = newScrollTop;
+
+                // Verify the scroll position was set correctly
+                setTimeout(() => {
+                  console.log('✅ Final scroll position:', container.scrollTop);
+                }, 100);
+              }
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+      if (isInitialLoad) {
+        setMessages(dummyChats[customerId] || []);
+      }
     }
-  } catch (error) {
-    console.error('Error fetching customer details:', error);
-    Toast.fire({ icon: 'error', title: 'Failed to fetch customer details' });
-    // Fallback to basic customer data
+  };
+
+  const handleSearchChats = async (searchQuery: string) => {
+    if (!token || !selectedCustomer || !searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+
+    try {
+      const response = await searchChats(selectedCustomer.id, searchQuery, token);
+      if (response.status === 200 && response.data) {
+        const transformedMessages: Message[] = response.data.map((msg: any) => {
+          const fromValue = msg.from === profile?._id ? 'me' : 'them';
+
+          // Determine message type and content
+          let messageType = 'text';
+          let messageContent = msg.content?.text || '';
+
+          if (msg.content?.media && msg.content.media.length > 0) {
+            const media = msg.content.media[0]; // Take first media item
+            messageType = media.type || 'image';
+            messageContent = media.url || '';
+          }
+
+          return {
+            _id: msg._id,
+            id: msg._id,
+            from: fromValue,
+            to: msg.to,
+            type: messageType,
+            content: messageContent,
+            time: new Date(msg.createdAt).toLocaleTimeString(),
+            createdAt: msg.createdAt,
+            status: msg.status
+          };
+        });
+        setSearchResults(transformedMessages.reverse());
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching chats:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
-    setMessages(dummyChats[customer.id] || []);
-  }
-};
+    setPage(1); // Reset page when selecting a new customer
+    setMessages([]); // Clear previous messages
+    setScrollReference(null); // Clear scroll reference
+    loadChatMessages(customer.id, 1, true); // Initial load
+  };
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (chatSearchQuery.trim()) {
+        handleSearchChats(chatSearchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [chatSearchQuery]);
+
+  // Close media options when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showMediaOptions) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.media-options-container')) {
+          setShowMediaOptions(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMediaOptions]);
+
+  // Scroll to bottom when messages change (only for initial load or new messages)
+  useEffect(() => {
+    if (messageContainerRef.current && !isLoadingMore && !scrollReference) {
+      console.log('📜 Auto-scrolling to bottom (no reference set)');
+      messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+    }
+  }, [messages, isLoadingMore, scrollReference]);
+
+  // Handle scroll to load more messages with reference tracking
+  const handleScroll = () => {
+    if (!messageContainerRef.current || !selectedCustomer || isLoadingMore) return;
+
+    const container = messageContainerRef.current;
+    const { scrollTop } = container;
+
+    // Capture reference message when near top (within 50px) and no reference set yet
+    if (scrollTop <= 50 && !scrollReference && messages.length > 0) {
+      // Find the first visible message as reference
+      const messageElements = container.querySelectorAll('[data-message-id]');
+      if (messageElements.length > 0) {
+        const firstVisibleMessage = messageElements[0] as HTMLElement;
+        const messageId = firstVisibleMessage.getAttribute('data-message-id');
+
+        if (messageId) {
+          // Calculate offset from top of container
+          const messageRect = firstVisibleMessage.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const offset = messageRect.top - containerRect.top + scrollTop;
+
+          setScrollReference({ messageId, offset });
+          console.log('🔍 Set scroll reference:', { messageId, offset, scrollTop });
+        }
+      }
+    }
+
+    // Load more messages when at top
+    if (scrollTop === 0 && !isLoadingMore) {
+      console.log('📥 Loading more messages, page:', page + 1);
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      setPage(nextPage);
+
+      loadChatMessages(selectedCustomer.id, nextPage, false).finally(() => {
+        setIsLoadingMore(false);
+      });
+    }
+  };
+
+  const handleMediaSelect = async (mediaType: 'image' | 'video' | 'audio' | 'document') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = mediaType === 'image' ? 'image/*' :
+      mediaType === 'video' ? 'video/*' :
+        mediaType === 'audio' ? 'audio/*' :
+          '.pdf,.doc,.docx,.txt,.xlsx,.xls';
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
+        return;
+      }
+
+      console.log('Selected file:', file.name, 'Type:', mediaType);
+
+      setIsSendingMessage(true);
+
+      // Create a temporary message to show in UI
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        from: profile._id,
+        type: mediaType,
+        content: file.name,
+        time: new Date().toLocaleTimeString(),
+      };
+
+      try {
+        // Add temporary message to UI
+        setMessages(prev => [...prev, tempMessage]);
+
+        // Send media through API
+        const response = await sendWhatsAppMedia(
+          profile.company._id,
+          selectedCustomer.phone,
+          file,
+          mediaType,
+          '', // caption
+          selectedCustomer.id,
+          profile._id,
+          false,
+          token
+        );
+
+        if (response.success) {
+          Toast.fire({
+            icon: 'success',
+            title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} sent successfully!`
+          });
+
+          // Reload messages to get the actual sent message
+          await loadChatMessages(selectedCustomer.id, 1, true);
+        } else {
+          // Remove temporary message on failure
+          setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+
+          Toast.fire({
+            icon: 'error',
+            title: response.message || `Failed to send ${mediaType}`
+          });
+        }
+      } catch (error) {
+        console.error('Error sending media:', error);
+
+        // Remove temporary message on error
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+
+        Toast.fire({
+          icon: 'error',
+          title: `Failed to send ${mediaType}. Please try again.`
+        });
+      } finally {
+        setIsSendingMessage(false);
+      }
+    };
+
+    input.click();
+    setShowMediaOptions(false);
+  };
 
   const handleAssignmentComplete = () => {
-    // Refresh customer data or perform any updates after assignment
     Toast.fire({
-      icon: "success",
-      title: "Chat assignment completed successfully!",
+      icon: 'success',
+      title: 'Chat assignment completed successfully!',
     });
-    // You can add any additional logic here like refreshing customer list
   };
 
   const handlePin = async (id: string) => {
@@ -299,11 +569,7 @@ const handleAssignLabels = async () => {
       const response = await axios.put(
         `${import.meta.env.VITE_API_BASE}/update-customer/${id}`,
         { pinned: !customer?.pinned },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       if (response.data.success) {
         setCustomers(
@@ -327,11 +593,7 @@ const handleAssignLabels = async () => {
       const response = await axios.put(
         `${import.meta.env.VITE_API_BASE}/update-customer/${id}`,
         { isBlocked: !customer?.isBlocked },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       if (response.data.success) {
         setCustomers(
@@ -349,15 +611,10 @@ const handleAssignLabels = async () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.delete(
-        `${import.meta.env.VITE_API_BASE}/delete-customer/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`${import.meta.env.VITE_API_BASE}/delete-customer/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
       if (response.data.success) {
         setCustomers(customers.filter((c) => c.id !== id));
         if (selectedCustomer?.id === id) setSelectedCustomer(null);
@@ -381,11 +638,7 @@ const handleAssignLabels = async () => {
           phone: form.phone,
           countryCode: form.countryCode,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       if (response.data.data !== null) {
         setShowAddForm(false);
@@ -401,66 +654,126 @@ const handleAssignLabels = async () => {
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage) return;
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      from: "me",
-      type: "text",
-      content: newMessage,
-      time: new Date().toLocaleTimeString(),
-    };
-    setMessages([...messages, newMsg]);
-    setCustomers(
-      customers.map((c) =>
-        c.id === selectedCustomer?.id
-          ? { ...c, lastMessage: newMessage, lastTime: newMsg.time }
-          : c
-      )
-    );
-    setNewMessage("");
+    if (!newMessage || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) return;
+
+    setIsSendingMessage(true);
+
+    try {
+      const newMsg: Message = {
+        id: Date.now().toString(),
+        from: profile?._id,
+        type: 'text',
+        content: newMessage,
+        time: new Date().toLocaleTimeString(),
+      };
+
+      setMessages([...messages, newMsg]);
+      setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c)));
+
+      const phoneNumber = selectedCustomer.phone;
+
+      console.log('Phone number being sent:', phoneNumber);
+
+      const response = await sendWhatsAppMessage(
+        profile.company._id,
+        phoneNumber,
+        newMessage,
+        selectedCustomer.id,
+        profile._id,
+        false,
+        token
+      );
+
+      if (response.success) {
+        if (selectedCustomer) {
+          await loadChatMessages(selectedCustomer.id, 1, true);
+        }
+      } else {
+        Toast.fire({
+          icon: 'error',
+          title: response.message || 'Failed to send message',
+        });
+      }
+
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Toast.fire({
+        icon: 'error',
+        title: 'Failed to send message. Please try again.',
+      });
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   const renderMessage = (msg: Message) => {
-    const isMe = msg.from === "me";
+    const isMe = msg.from === 'me' || msg.from === profile?._id;
+    console.log('Rendering message - from:', msg.from, 'isMe:', isMe);
+    const messageContent = msg.content;
+
     let content;
+
     switch (msg.type) {
-      case "image":
-        content = (
-          <img src={msg.content} alt="Image" className="max-w-xs rounded-lg" />
-        );
+      case 'image':
+        content = <img src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} alt="Image" className="max-w-xs rounded-lg" />;
         break;
-      case "video":
-        content = (
-          <video src={msg.content} controls className="max-w-xs rounded-lg" />
-        );
+      case 'video':
+        content = <video src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} controls className="max-w-xs rounded-lg" />;
         break;
-      case "audio":
-        content = <audio src={msg.content} controls />;
+      case 'audio':
+        content = <audio src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} controls />;
         break;
-      case "document":
-        content = (
-          <a href={msg.content} className="text-blue-500">
-            {msg.content}
-          </a>
-        );
+      case 'document':
+        content = <a href={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} className="text-blue-500" target="_blank" rel="noopener noreferrer">{messageContent}</a>;
         break;
-      case "contact":
-        content = <div className="bg-gray-100 p-2 rounded">{msg.content}</div>;
+      case 'contact':
+        content = <div className="bg-gray-100 p-2 rounded">{messageContent}</div>;
         break;
       default:
-        content = <p>{msg.content}</p>;
+        content = <p className="text-white break-words whitespace-pre-wrap message-text">{messageContent}</p>;
     }
+
     return (
-      <div className={`flex ${isMe ? "justify-end" : "justify-start"} mb-2`}>
-        <div
-          className={`max-w-xs px-4 py-2 rounded-lg ${
-            isMe ? "bg-green-100 text-right" : "bg-gray-100 text-left"
-          }`}
-        >
-          {content}
-          <span className="text-xs text-gray-500 ml-2">{msg.time}</span>
+      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`} data-message-id={msg._id || msg.id}>
+        <div className={`relative max-w-xs px-3 py-2 rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} overflow-wrap-anywhere`}>
+          {isMe ? (
+            <svg
+              className="absolute top-0 right-[-5px] w-3 h-3 text-green-500 transform rotate-90"
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+            </svg>
+          ) : (
+            <svg
+              className="absolute top-0 left-[-5px] w-3 h-3 text-gray-600 transform rotate-90"
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+            </svg>
+          )}
+
+          <div className="flex items-end justify-end">
+            {content}
+            <div className={`flex items-center ml-1 ${isMe ? 'text-green-100' : 'text-gray-300'}`}>
+              <span className="text-[10px]">
+                {msg.createdAt
+                  ? new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                  : msg.time}
+              </span>
+              {isMe && (
+                <span className="ml-1 text-[10px]">
+                  {msg.status === 'read' ? '✓✓' : msg.status === 'delivered' ? '✓✓' : '✓'}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -468,13 +781,7 @@ const handleAssignLabels = async () => {
 
   const getMedia = (type: "image" | "video" | "audio" | "document") =>
     messages.filter((m) => m.type === type);
-
-  const filteredMessages = messages.filter(
-    (msg) =>
-      msg.type === "text" &&
-      chatSearchQuery &&
-      msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase())
-  );
+  // const getMedia = (type: 'image' | 'video' | 'audio' | 'document') => messages.filter((m) => m.type === type);
 
   return (
     <div className="flex max-h-[calc(100vh-77px)] overflow-hidden bg-gray-100 dark:bg-gray-900">
@@ -543,22 +850,109 @@ const handleAssignLabels = async () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+            <div
+              ref={messageContainerRef}
+              className="flex-1 overflow-y-auto p-4 bg-green-50 relative"
+              onScroll={handleScroll} // Add scroll event listener
+            >
+              {isLoadingMore && (
+                <div className="flex justify-center items-center py-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading more messages...</span>
+                </div>
+              )}
               {messages.map(renderMessage)}
             </div>
 
-            <form
-              onSubmit={handleSendMessage}
-              className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex"
-            >
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex relative">
+              {/* Plus Icon for Media */}
+              <div className="relative media-options-container">
+                <button
+                  type="button"
+                  onClick={() => setShowMediaOptions(!showMediaOptions)}
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mr-2"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+
+                {/* Media Options Dropdown */}
+                {showMediaOptions && (
+                  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 z-10">
+                    <div className="flex flex-col space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('image')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('video')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Video
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('audio')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        Audio
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('document')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Document
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <input
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 caret-green-500"
+                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white"
+                disabled={isSendingMessage}
               />
-              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-r-lg"><Send className="w-5 h-5" /></button>
+              <button
+                type="submit"
+                className={`px-4 py-2 text-white rounded-r-lg flex items-center ${isSendingMessage
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                disabled={isSendingMessage || !newMessage.trim()}
+              >
+                {isSendingMessage ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  'Send'
+                )}
+              </button>
             </form>
           </>
         ) : (
@@ -782,33 +1176,33 @@ const handleAssignLabels = async () => {
             viewBox="0 0 24 24"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-      <div className="p-4">
-        {!showAllStarred && !showAllMedia ? (
-          <>
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-32 h-32 rounded-full bg-emerald-600 text-white flex items-center justify-center text-5xl font-semibold mb-4">
-                {getInitials(selectedCustomer.name)}
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-                {selectedCustomer.name}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {selectedCustomer.phone}
-              </p>
-              {selectedCustomer.email && (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {selectedCustomer.email}
-                </p>
-              )}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {showAllStarred
+                  ? "Starred Messages"
+                  : showAllMedia
+                    ? "Media, docs and links"
+                    : "Contact Info"}
+              </h2>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
             </div>
             <hr className="my-4 border-gray-200 dark:border-gray-700" />
             <div className="mb-6">
@@ -928,104 +1322,132 @@ const handleAssignLabels = async () => {
                       </div>
                     )}
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Name:
-                    </span>
-                    <span className="text-sm text-gray-900 dark:text-white">
-                      {selectedCustomer.name}
-                    </span>
-                  </div>
-                  
-                  <div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Labels:
-                    </span>
-                    <div className="mt-1">
-                      {selectedCustomer.labels && selectedCustomer.labels.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {selectedCustomer.labels.map((label) => (
-                            <span
-                              key={label._id}
-                              className="inline-flex items-center px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-xs rounded-full"
-                            >
-                              {label.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          No labels assigned
-                        </span>
-                      )}
+                  <hr className="my-4 border-gray-200 dark:border-gray-700" />
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-medium text-gray-900 dark:text-white">
+                        Media, docs and links
+                      </h3>
+                      <button
+                        onClick={() => setShowAllMedia(true)}
+                        className="text-emerald-600 dark:text-emerald-400 text-sm"
+                      >
+                        See all
+                      </button>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Images
+                      </h4>
+                      <div className="grid grid-cols-3 gap-2">
+                        {getMedia('image').slice(0, 4).map((m) => {
+                          return <img key={m.id} src={m.content} alt="Image" className="w-full h-20 object-cover rounded" />;
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-            <hr className="my-4 border-gray-200 dark:border-gray-700" />
-            <div className="mb-6">
-              <div className="flex justify-between items-center">
-                <h3 className="font-medium text-gray-900 dark:text-white">
-                  Starred Messages
-                </h3>
-                <button
-                  onClick={() => setShowAllStarred(true)}
-                  className="text-emerald-600 dark:text-emerald-400 text-sm"
-                >
-                  See all
-                </button>
-              </div>
-              {starredMessages && starredMessages.length > 0 ? (
-                <div className="mt-2 space-y-2">
-                  {starredMessages.slice(0, 3).map((message) => (
-                    <p
-                      key={message.id}
-                      className="text-sm text-gray-600 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-800 rounded"
+                  <hr className="my-4 border-gray-200 dark:border-gray-700" />
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleBlock(selectedCustomer.id)}
+                      className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                     >
-                      {message.content}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  No starred messages yet.
-                </p>
-              )}
-            </div>
-            <hr className="my-4 border-gray-200 dark:border-gray-700" />
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium text-gray-900 dark:text-white">
-                  Media, docs and links
-                </h3>
-                <button
-                  onClick={() => setShowAllMedia(true)}
-                  className="text-emerald-600 dark:text-emerald-400 text-sm"
-                >
-                  See all
-                </button>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Images
-                </h4>
-                <div className="grid grid-cols-3 gap-2">
-                  {getMedia("image")
-                    .slice(0, 4)
-                    .map((m) => (
-                      <img
-                        key={m.id}
-                        src={m.content}
-                        alt="Image"
-                        className="w-full h-20 object-cover rounded"
-                      />
+                      {selectedCustomer.isBlocked
+                        ? "Unblock contact"
+                        : "Block contact"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(selectedCustomer.id)}
+                    >
+                      Delete chat
+                    </button>
+                  </div>
+                </>
+              ) : showAllStarred ? (
+                <>
+                  <button
+                    onClick={() => setShowAllStarred(false)}
+                    className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
+                  >
+                    Back to Profile
+                  </button>
+                  <div className="space-y-4">
+                    {starredMessages && starredMessages.length > 0 ? (
+                      starredMessages.map((message) => (
+                        <p
+                          key={message.id}
+                          className="text-sm text-gray-600 dark:text-gray-400 p-3 bg-gray-100 dark:bg-gray-800 rounded"
+                        >
+                          {message.content}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        No starred messages yet.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : showAllMedia ? (
+                <>
+                  <button
+                    onClick={() => setShowAllMedia(false)}
+                    className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
+                  >
+                    Back to Profile
+                  </button>
+                  <div className="flex space-x-4 mb-4">
+                    {["image", "video", "audio", "document"].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setSelectedMediaType(type as 'image' | 'video' | 'audio' | 'document')}
+                        className={`px-2 py-1 rounded-lg ${selectedMediaType === type ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                          }`}
+                      >
+                        {type.charAt(0).toUpperCase() + type.slice(1)}s
+                      </button>
                     ))}
-                </div>
-              </div>
+                  </div>
+                  <div className="space-y-4">
+                    {selectedMediaType === "image" && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {getMedia('image').map((m) => {
+                          return <img key={m.id} src={m.content} alt="Image" className="w-full h-32 object-cover rounded" />;
+                        })}
+                      </div>
+                    )}
+                    {selectedMediaType === 'video' && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {getMedia('video').map((m) => {
+                          return <video key={m.id} src={m.content} className="w-full h-32 object-cover rounded" controls />;
+                        })}
+                      </div>
+                    )}
+                    {selectedMediaType === "audio" && (
+                      <div className="space-y-2">
+                        {getMedia('audio').map((m) => {
+                          return (
+                            <div key={m.id}>
+                              <audio src={m.content} controls className="w-full" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {selectedMediaType === "document" && (
+                      <div className="space-y-2">
+                        {getMedia('document').map((m) => {
+                          return (
+                            <a key={m.id} href={m.content} className="block text-blue-500 dark:text-blue-400 mb-1">
+                              {m.content}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : null}
             </div>
             <hr className="my-4 border-gray-200 dark:border-gray-700" />
             <div className="space-y-2">
@@ -1149,35 +1571,16 @@ const handleAssignLabels = async () => {
 )}
 
       {showSearchModal && selectedCustomer?.id && (
-        <div
-          className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50"
-          onClick={() => setShowSearchModal(false)}
-        >
-          <div
-            className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50" onClick={() => setShowSearchModal(false)}>
+          <div className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Search Messages
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Search Messages</h2>
               <button
                 onClick={() => setShowSearchModal(false)}
                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
@@ -1189,17 +1592,22 @@ const handleAssignLabels = async () => {
                 onChange={(e) => setChatSearchQuery(e.target.value)}
                 className="w-full p-2 border rounded-lg mb-4 dark:bg-gray-800 dark:text-white dark:border-gray-600"
               />
-              <div className="space-y-4">
-                {chatSearchQuery && filteredMessages.length > 0 ? (
-                  filteredMessages.map((msg) => renderMessage(msg))
+              <div className="space-y-4 bg-green-50 p-4 rounded-lg min-h-[400px] relative">
+                {isSearching ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
+                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Searching...</span>
+                  </div>
+                ) : chatSearchQuery && searchResults.length > 0 ? (
+                  searchResults.map((msg) => renderMessage(msg))
                 ) : chatSearchQuery ? (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    No messages found.
-                  </p>
+                  <div className="flex justify-center items-center py-8">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">No messages found.</p>
+                  </div>
                 ) : (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Type to search messages.
-                  </p>
+                  <div className="flex justify-center items-center py-8">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Type to search messages.</p>
+                  </div>
                 )}
               </div>
             </div>
