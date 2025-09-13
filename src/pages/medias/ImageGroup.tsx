@@ -1,6 +1,6 @@
-import { Message } from '../OtherPage/Chats';
+// import { Message } from '../OtherPage/Chats';
 
-const ImageGroup = ({ messages }: { messages: Message[] }) => {
+const ImageGroup = ({ messages }: { messages: any[] }) => {
   const isMe = messages[0].from === 'me';
   const hasMore = messages.length > 4;
   const displayMessages = messages.slice(0, 4);

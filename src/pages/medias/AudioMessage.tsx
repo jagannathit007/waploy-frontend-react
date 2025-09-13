@@ -1,6 +1,6 @@
-import { Message } from '../OtherPage/Chats';
+// import { Message } from '../OtherPage/Chats';
 
-const AudioMessage = ({ msg, isMe }: { msg: Message; isMe: boolean }) => (
+const AudioMessage = ({ msg, isMe }: { msg: any; isMe: boolean }) => (
   <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
     <div className={`max-w-xs rounded-lg ${isMe ? 'bg-green-100' : 'bg-gray-100'} p-2 flex items-center`}>
       <button className="mr-2">

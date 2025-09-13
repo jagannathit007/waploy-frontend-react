@@ -1,6 +1,6 @@
-import { Message } from '../OtherPage/Chats';
+// import { Message } from '../OtherPage/Chats';
 
-const DocumentMessage = ({ msg, isMe }: { msg: Message; isMe: boolean }) => {
+const DocumentMessage = ({ msg, isMe }: { msg: any; isMe: boolean }) => {
   const fileName = msg.content;
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   const isPdf = ext === 'pdf';

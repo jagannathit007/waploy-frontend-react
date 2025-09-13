@@ -17,7 +17,7 @@ interface Customer {
   pinned: boolean;
   isBlocked: boolean;
   email?: string;
-  labels?: Label[];
+  // labels?: Label[];
 }
 
 interface Message {
@@ -170,7 +170,7 @@ const Chats = () => {
           }
         );
         if (response.data.status === 200 && response.data.data) {
-          setLabels(response.data.data.docs || []);
+          // setLabels(response.data.data.docs || []);
         }
       } catch (error) {
         console.error("Error fetching labels:", error);
@@ -181,13 +181,13 @@ const Chats = () => {
   }, []);
 
   // Update selectedLabels when selectedCustomer changes
-  useEffect(() => {
-    if (selectedCustomer?.labels) {
-      setSelectedLabels(selectedCustomer.labels.map((label) => label._id));
-    } else {
-      setSelectedLabels([]);
-    }
-  }, [selectedCustomer]);
+  // useEffect(() => {
+  //   if (selectedCustomer?.labels) {
+  //     setSelectedLabels(selectedCustomer.labels.map((label) => label._id));
+  //   } else {
+  //     setSelectedLabels([]);
+  //   }
+  // }, [selectedCustomer]);
 
   // New function to handle label assignment
   // Updated function to handle label assignment
@@ -195,49 +195,49 @@ const handleAssignLabels = async () => {
   if (!selectedCustomer) return;
   setIsEditingInfo(false); // Exit edit mode
   try {
-    const token = localStorage.getItem('token');
+    // const token = localStorage.getItem('token');
 
     // Update customer name
-    const nameResponse = await axios.post(
-      `${import.meta.env.VITE_API_BASE}/update-customer-name`,
-      { customerId: selectedCustomer.id, name: selectedCustomer.name },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    // const nameResponse = await axios.post(
+    //   `${import.meta.env.VITE_API_BASE}/update-customer-name`,
+    //   { customerId: selectedCustomer.id, name: selectedCustomer.name },
+    //   { headers: { Authorization: `Bearer ${token}` } }
+    // );
 
     // Update labels
-    const labelResponse = await axios.post(
-      `${import.meta.env.VITE_API_BASE}/assign-label-to-customer`,
-      { customerId: selectedCustomer.id, labelIds: selectedLabels },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    // const labelResponse = await axios.post(
+    //   `${import.meta.env.VITE_API_BASE}/assign-label-to-customer`,
+    //   { customerId: selectedCustomer.id, labelIds: selectedLabels },
+    //   { headers: { Authorization: `Bearer ${token}` } }
+    // );
 
-    if (nameResponse.data.status === 200 && labelResponse.data.status === 200) {
-      const updatedCustomer = nameResponse.data.data.customer;
-      const updatedLabels = labelResponse.data.data.labels || [];
-      setCustomers(
-        customers.map((c) =>
-          c.id === selectedCustomer.id
-            ? {
-                ...c,
-                name: updatedCustomer.name,
-                email: updatedCustomer.email,
-                phone: updatedCustomer.phone,
-                labels: updatedLabels,
-              }
-            : c
-        )
-      );
-      setSelectedCustomer({
-        ...selectedCustomer,
-        name: updatedCustomer.name,
-        email: updatedCustomer.email,
-        phone: updatedCustomer.phone,
-        labels: updatedLabels,
-      });
-      Toast.fire({ icon: 'success', title: 'Customer details and labels updated successfully' });
-    } else {
-      throw new Error('Failed to update customer details or labels');
-    }
+    // if (nameResponse.data.status === 200 && labelResponse.data.status === 200) {
+    //   const updatedCustomer = nameResponse.data.data.customer;
+    //   const updatedLabels = labelResponse.data.data.labels || [];
+    //   setCustomers(
+    //     customers.map((c) =>
+    //       c.id === selectedCustomer.id
+    //         ? {
+    //             ...c,
+    //             name: updatedCustomer.name,
+    //             email: updatedCustomer.email,
+    //             phone: updatedCustomer.phone,
+    //             labels: updatedLabels,
+    //           }
+    //         : c
+    //     )
+    //   );
+    //   setSelectedCustomer({
+    //     ...selectedCustomer,
+    //     name: updatedCustomer.name,
+    //     email: updatedCustomer.email,
+    //     phone: updatedCustomer.phone,
+    //     labels: updatedLabels,
+    //   });
+    //   Toast.fire({ icon: 'success', title: 'Customer details and labels updated successfully' });
+    // } else {
+    //   throw new Error('Failed to update customer details or labels');
+    // }
   } catch (error: any) {
     console.error('Update customer error:', error);
     Toast.fire({ icon: 'error', title: error.message || 'Failed to update customer details' });
@@ -1148,7 +1148,7 @@ const handleAssignLabels = async () => {
         </div>
       )}
 
-      {showProfileModal && selectedCustomer?.id && (
+{showProfileModal && selectedCustomer?.id && (
   <div
     className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50"
     onClick={() => setShowProfileModal(false)}
@@ -1176,297 +1176,130 @@ const handleAssignLabels = async () => {
             viewBox="0 0 24 24"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {showAllStarred
-                  ? "Starred Messages"
-                  : showAllMedia
-                    ? "Media, docs and links"
-                    : "Contact Info"}
-              </h2>
-              <button
-                onClick={() => setShowProfileModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+      <hr className="my-4 border-gray-200 dark:border-gray-700" />
+      <div className="mb-6">
+        {isEditingInfo ? (
+          <div className="space-y-3">
+            {/* Name Input */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                value={selectedCustomer.name}
+                onChange={(e) =>
+                  setSelectedCustomer({
+                    ...selectedCustomer,
+                    name: e.target.value,
+                  })
+                }
+                className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="Enter customer name"
+              />
             </div>
-            <hr className="my-4 border-gray-200 dark:border-gray-700" />
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium text-gray-900 dark:text-white">
-                  Info
-                </h3>
-                <button
-                  onClick={() => {
-                    if (isEditingInfo) {
-                      handleAssignLabels(); // Save name and labels
-                    } else {
-                      setIsEditingInfo(true);
-                    }
-                  }}
-                  className="text-emerald-600 dark:text-emerald-400 text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-2 py-1 rounded transition-colors duration-200"
-                >
-                  {isEditingInfo ? "Save" : "Edit"}
-                </button>
-              </div>
-              {isEditingInfo ? (
-                <div className="space-y-3">
-                  {/* Name Input */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedCustomer.name}
-                      onChange={(e) =>
-                        setSelectedCustomer({
-                          ...selectedCustomer,
-                          name: e.target.value,
-                        })
-                      }
-                      className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      placeholder="Enter customer name"
-                    />
+            {/* Label Selection */}
+            <div>
+              {/* <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Labels ({selectedLabels.length} selected)
+              </label>
+              <div className="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+                {labels.length === 0 ? (
+                  <div className="p-3 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    No labels available
                   </div>
-                  {/* Label Selection */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Labels ({selectedLabels.length} selected)
-                    </label>
-                    <div className="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
-                      {labels.length === 0 ? (
-                        <div className="p-3 text-center text-gray-500 dark:text-gray-400 text-sm">
-                          No labels available
-                        </div>
-                      ) : (
-                        <div className="p-2 space-y-1">
-                          {labels.map((label) => (
-                            <label
-                              key={label._id}
-                              className="flex items-center p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors duration-200"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedLabels.includes(label._id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedLabels([...selectedLabels, label._id]);
-                                  } else {
-                                    setSelectedLabels(
-                                      selectedLabels.filter((id) => id !== label._id)
-                                    );
-                                  }
-                                }}
-                                className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded mr-2"
-                              />
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {label.name}
-                                </div>
-                                {label.description && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {label.description}
-                                  </div>
-                                )}
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {/* Selected Labels Preview */}
-                    {selectedLabels.length > 0 && (
-                      <div className="mt-2">
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
-                          Selected Labels:
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedLabels.map((labelId) => {
-                            const label = labels.find((l) => l._id === labelId);
-                            return label ? (
-                              <span
-                                key={labelId}
-                                className="inline-flex items-center px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-xs rounded-full"
-                              >
-                                {label.name}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setSelectedLabels(
-                                      selectedLabels.filter((id) => id !== labelId)
-                                    )
-                                  }
-                                  className="ml-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ) : null;
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <hr className="my-4 border-gray-200 dark:border-gray-700" />
-                  <div className="mb-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-medium text-gray-900 dark:text-white">
-                        Media, docs and links
-                      </h3>
-                      <button
-                        onClick={() => setShowAllMedia(true)}
-                        className="text-emerald-600 dark:text-emerald-400 text-sm"
+                ) : (
+                  <div className="p-2 space-y-1">
+                    {labels.map((label) => (
+                      <label
+                        key={label._id}
+                        className="flex items-center p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors duration-200"
                       >
-                        See all
-                      </button>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Images
-                      </h4>
-                      <div className="grid grid-cols-3 gap-2">
-                        {getMedia('image').slice(0, 4).map((m) => {
-                          return <img key={m.id} src={m.content} alt="Image" className="w-full h-20 object-cover rounded" />;
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                  <hr className="my-4 border-gray-200 dark:border-gray-700" />
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => handleBlock(selectedCustomer.id)}
-                      className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                    >
-                      {selectedCustomer.isBlocked
-                        ? "Unblock contact"
-                        : "Block contact"}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(selectedCustomer.id)}
-                    >
-                      Delete chat
-                    </button>
-                  </div>
-                </>
-              ) : showAllStarred ? (
-                <>
-                  <button
-                    onClick={() => setShowAllStarred(false)}
-                    className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
-                  >
-                    Back to Profile
-                  </button>
-                  <div className="space-y-4">
-                    {starredMessages && starredMessages.length > 0 ? (
-                      starredMessages.map((message) => (
-                        <p
-                          key={message.id}
-                          className="text-sm text-gray-600 dark:text-gray-400 p-3 bg-gray-100 dark:bg-gray-800 rounded"
-                        >
-                          {message.content}
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        No starred messages yet.
-                      </p>
-                    )}
-                  </div>
-                </>
-              ) : showAllMedia ? (
-                <>
-                  <button
-                    onClick={() => setShowAllMedia(false)}
-                    className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
-                  >
-                    Back to Profile
-                  </button>
-                  <div className="flex space-x-4 mb-4">
-                    {["image", "video", "audio", "document"].map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => setSelectedMediaType(type as 'image' | 'video' | 'audio' | 'document')}
-                        className={`px-2 py-1 rounded-lg ${selectedMediaType === type ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                          }`}
-                      >
-                        {type.charAt(0).toUpperCase() + type.slice(1)}s
-                      </button>
+                        <input
+                          type="checkbox"
+                          checked={selectedLabels.includes(label._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLabels([...selectedLabels, label._id]);
+                            } else {
+                              setSelectedLabels(
+                                selectedLabels.filter((id) => id !== label._id)
+                              );
+                            }
+                          }}
+                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded mr-2"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {label.name}
+                          </div>
+                          {label.description && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {label.description}
+                            </div>
+                          )}
+                        </div>
+                      </label>
                     ))}
                   </div>
-                  <div className="space-y-4">
-                    {selectedMediaType === "image" && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {getMedia('image').map((m) => {
-                          return <img key={m.id} src={m.content} alt="Image" className="w-full h-32 object-cover rounded" />;
-                        })}
-                      </div>
-                    )}
-                    {selectedMediaType === 'video' && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {getMedia('video').map((m) => {
-                          return <video key={m.id} src={m.content} className="w-full h-32 object-cover rounded" controls />;
-                        })}
-                      </div>
-                    )}
-                    {selectedMediaType === "audio" && (
-                      <div className="space-y-2">
-                        {getMedia('audio').map((m) => {
-                          return (
-                            <div key={m.id}>
-                              <audio src={m.content} controls className="w-full" />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {selectedMediaType === "document" && (
-                      <div className="space-y-2">
-                        {getMedia('document').map((m) => {
-                          return (
-                            <a key={m.id} href={m.content} className="block text-blue-500 dark:text-blue-400 mb-1">
-                              {m.content}
-                            </a>
-                          );
-                        })}
-                      </div>
-                    )}
+                )}
+              </div> */}
+              {/* Selected Labels Preview */}
+              {/* {selectedLabels.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    Selected Labels:
                   </div>
-                </>
-              ) : null}
+                  <div className="flex flex-wrap gap-1">
+                    {selectedLabels.map((labelId) => {
+                      const label = labels.find((l) => l._id === labelId);
+                      return label ? (
+                        <span
+                          key={labelId}
+                          className="inline-flex items-center px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-xs rounded-full"
+                        >
+                          {label.name}
+                          <button
+                            type="button"
+                            // onClick={() =>
+                            //   setSelectedLabels(
+                            //     selectedLabels.filter((id) => id !== labelId)
+                            //   )
+                            // }
+                            className="ml-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )} */}
             </div>
-            <hr className="my-4 border-gray-200 dark:border-gray-700" />
-            <div className="space-y-2">
-              <button
-                onClick={() => handleBlock(selectedCustomer.id)}
-                className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-              >
-                {selectedCustomer.isBlocked ? "Unblock contact" : "Block contact"}
-              </button>
-              <button
-                onClick={() => handleDelete(selectedCustomer.id)}
-                className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-              >
-                Delete chat
-              </button>
-            </div>
-          </>
+            <button
+              onClick={() => {
+                if (isEditingInfo) {
+                  handleAssignLabels(); // Save name and labels
+                }
+                setIsEditingInfo(!isEditingInfo);
+              }}
+              className="text-emerald-600 dark:text-emerald-400 text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-2 py-1 rounded transition-colors duration-200"
+            >
+              {isEditingInfo ? "Save" : "Edit"}
+            </button>
+          </div>
         ) : showAllStarred ? (
-          <>
+          <div>
             <button
               onClick={() => setShowAllStarred(false)}
               className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
@@ -1489,9 +1322,9 @@ const handleAssignLabels = async () => {
                 </p>
               )}
             </div>
-          </>
+          </div>
         ) : showAllMedia ? (
-          <>
+          <div>
             <button
               onClick={() => setShowAllMedia(false)}
               className="text-emerald-600 dark:text-emerald-400 text-sm mb-4"
@@ -1563,8 +1396,65 @@ const handleAssignLabels = async () => {
                 </div>
               )}
             </div>
-          </>
-        ) : null}
+          </div>
+        ) : (
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-white">Info</h3>
+              <button
+                onClick={() => setIsEditingInfo(true)}
+                className="text-emerald-600 dark:text-emerald-400 text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-2 py-1 rounded transition-colors duration-200"
+              >
+                Edit
+              </button>
+            </div>
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-medium text-gray-900 dark:text-white">
+                  Media, docs and links
+                </h3>
+                <button
+                  onClick={() => setShowAllMedia(true)}
+                  className="text-emerald-600 dark:text-emerald-400 text-sm"
+                >
+                  See all
+                </button>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Images
+                </h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {getMedia("image")
+                    .slice(0, 4)
+                    .map((m) => (
+                      <img
+                        key={m.id}
+                        src={m.content}
+                        alt="Image"
+                        className="w-full h-20 object-cover rounded"
+                      />
+                    ))}
+                </div>
+              </div>
+            </div>
+            <hr className="my-4 border-gray-200 dark:border-gray-700" />
+            <div className="space-y-2">
+              <button
+                onClick={() => handleBlock(selectedCustomer.id)}
+                className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+              >
+                {selectedCustomer.isBlocked ? "Unblock contact" : "Block contact"}
+              </button>
+              <button
+                onClick={() => handleDelete(selectedCustomer.id)}
+                className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+              >
+                Delete chat
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   </div>

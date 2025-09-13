@@ -1,6 +1,6 @@
-import { Message } from '../OtherPage/Chats';
+// import { Message } from '../OtherPage/Chats';
 
-const VideoMessage = ({ msg, isMe }: { msg: Message; isMe: boolean }) => (
+const VideoMessage = ({ msg, isMe }: { msg: any; isMe: boolean }) => (
   <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
     <div className={`max-w-xs rounded-lg ${isMe ? 'bg-green-100' : 'bg-gray-100'}`}>
       <video src={msg.content} controls className="max-w-xs rounded-lg" />
