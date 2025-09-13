@@ -25,6 +25,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   login: (token: string) => void;
   logout: () => void;
+  updateProfile: (profile: UserProfile) => void; 
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -98,11 +99,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setProfile(null);
     navigate('/signin', { replace: true });
   };
+  
+   const updateProfile = (newProfile: UserProfile) => {
+    localStorage.setItem('profile', JSON.stringify(newProfile));
+    setProfile(newProfile);
+  };
 
   const isAuthenticated = !!token && !!profile;
 
   return (
-    <AuthContext.Provider value={{ token, profile, login, logout, isAuthenticated, isLoading }}>
+    <AuthContext.Provider value={{ token, profile, login, logout,updateProfile, isAuthenticated, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
