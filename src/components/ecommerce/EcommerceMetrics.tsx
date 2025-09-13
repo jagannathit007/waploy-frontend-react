@@ -36,45 +36,99 @@ interface ProfileData {
 export default function Dashboard() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Changed to false since we don't fetch QR code on load
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   // Get companyId from local storage
   const profile = JSON.parse(localStorage.getItem("profile") || "{}") as ProfileData;
   const companyId = profile.company?._id || "YOUR_DEFAULT_COMPANY_ID";
   const API_BASE_URL = import.meta.env.VITE_API_BASE || "http://localhost:3090/api/web";
 
-  useEffect(() => {
-    const fetchQRCode = async () => {
-      if (!companyId || companyId === "YOUR_DEFAULT_COMPANY_ID") {
-        setError("No company ID found in profile data");
-        setIsLoading(false);
-        return;
+  // Fetch QR code
+  const fetchQRCode = async () => {
+    if (!companyId || companyId === "YOUR_DEFAULT_COMPANY_ID") {
+      setError("No company ID found in profile data");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await axios.get<QRCodeResponse>(
+        `${API_BASE_URL}/whatsapp/${companyId}/qrcode`
+      );
+
+      if (response.data.success && response.data.data?.qrCode) {
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=208x208&data=${encodeURIComponent(response.data.data.qrCode)}`;
+        setQrCode(qrCodeUrl);
+        setError(null);
+      } else {
+        setQrCode(null);
+        setError(response.data.message || "Failed to load QR code");
       }
+    } catch (err) {
+      setQrCode(null);
+      setError("Error fetching QR code. Please try again later.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      try {
-        setIsLoading(true);
-        const response = await axios.get<QRCodeResponse>(
-          `${API_BASE_URL}/whatsapp/${companyId}/qrcode`
-        );
+  // Connect to WhatsApp
+  const handleConnect = async () => {
+    if (!companyId || companyId === "YOUR_DEFAULT_COMPANY_ID") {
+      setError("No company ID found in profile data");
+      return;
+    }
 
-        if (response.data.success && response.data.data?.qrCode) {
-          // Convert QR code string to image URL using qrserver.com
-          const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=208x208&data=${encodeURIComponent(response.data.data.qrCode)}`;
-          setQrCode(qrCodeUrl);
-          setError(null);
-        } else {
-          setError(response.data.message || "Failed to load QR code");
-        }
-      } catch (err) {
-        setError("Error fetching QR code. Please try again later.");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
+    try {
+      setIsConnecting(true);
+      const response = await axios.post<QRCodeResponse>(
+        `${API_BASE_URL}/whatsapp/${companyId}/connect`
+      );
+
+      if (response.data.success) {
+        // Call fetchQRCode only if connectCompany is successful
+        await fetchQRCode();
+      } else {
+        setError(response.data.message || "Failed to connect to WhatsApp");
       }
-    };
+    } catch (err) {
+      setError("Error connecting to WhatsApp. Please try again later.");
+      console.error(err);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
-    fetchQRCode();
-  }, [companyId]);
+  // Disconnect from WhatsApp
+  const handleDisconnect = async () => {
+    if (!companyId || companyId === "YOUR_DEFAULT_COMPANY_ID") {
+      setError("No company ID found in profile data");
+      return;
+    }
+
+    try {
+      setIsDisconnecting(true);
+      const response = await axios.post<{ success: boolean; message?: string }>(
+        `${API_BASE_URL}/whatsapp/${companyId}/disconnect` // Fixed URL
+      );
+
+      if (response.data.success) {
+        setQrCode(null); // Clear QR code on successful disconnection
+        setError(null);
+      } else {
+        setError(response.data.message || "Failed to disconnect from WhatsApp");
+      }
+    } catch (err) {
+      setError("Error disconnecting from WhatsApp. Please try again later.");
+      console.error(err);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -205,13 +259,38 @@ export default function Dashboard() {
                     />
                   ) : (
                     <div className="w-52 h-52 bg-gray-200 dark:bg-gray-300 rounded-lg flex items-center justify-center">
-                      <p className="text-gray-500 text-sm text-center">
-                        No QR code available
-                      </p>
+                      <button
+                        onClick={handleConnect}
+                        disabled={isConnecting}
+                        className={`px-4 py-2 rounded-lg text-white font-medium ${
+                          isConnecting
+                            ? "bg-emerald-300 cursor-not-allowed"
+                            : "bg-emerald-600 hover:bg-emerald-700"
+                        } transition-colors duration-200`}
+                      >
+                        {isConnecting ? "Connecting..." : "Connect"}
+                      </button>
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Disconnect Button (shown only when QR code is present) */}
+              {qrCode && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleDisconnect}
+                    disabled={isDisconnecting}
+                    className={`px-4 py-2 rounded-lg text-white font-medium ${
+                      isDisconnecting
+                        ? "bg-red-300 cursor-not-allowed"
+                        : "bg-red-600 hover:bg-red-700"
+                    } transition-colors duration-200`}
+                  >
+                    {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
