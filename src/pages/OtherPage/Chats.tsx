@@ -156,7 +156,7 @@ const Chats = () => {
       try {
         const token = localStorage.getItem("token");
         const response = await axios.post(
-          `${import.meta.env.VITE_API_BASE}/get-labels`,
+          `${import.meta.env.VITE_API_BASE}/get-active-labels`,
           { page: 1, limit: 100 },
           {
             headers: { Authorization: `Bearer ${token}` },
