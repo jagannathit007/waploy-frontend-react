@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import CustomerList from './CustomerList';
+import AssignChat from './assignChat';
 
 interface Customer {
   id: string;
@@ -89,6 +90,15 @@ const Chats = () => {
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setMessages(dummyChats[customer.id] || []);
+  };
+
+  const handleAssignmentComplete = () => {
+    // Refresh customer data or perform any updates after assignment
+    Toast.fire({
+      icon: "success",
+      title: "Chat assignment completed successfully!",
+    });
+    // You can add any additional logic here like refreshing customer list
   };
 
   const handlePin = async (id: string) => {
@@ -270,6 +280,10 @@ const Chats = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
+                <AssignChat
+                  selectedCustomer={selectedCustomer}
+                  onAssignmentComplete={handleAssignmentComplete}
+                />
                 <button
                   onClick={() => setShowSearchModal(true)}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-2 border border-gray-300 dark:border-gray-600 rounded-full"
