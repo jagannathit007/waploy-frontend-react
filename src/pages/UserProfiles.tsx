@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import  { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Swal from 'sweetalert2';
 import { apiCall } from '../services/api/auth';
 import PageMeta from "../components/common/PageMeta";
 
-// const API_BASE = import.meta.env.VITE_API_BASE;
 
 const Toast = Swal.mixin({
   toast: true,
@@ -19,7 +18,7 @@ const Toast = Swal.mixin({
 });
 
 const UserProfiles = () => {
-  const { profile, token } = useAuth();
+  const { profile, token, updateProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [userForm, setUserForm] = useState({
     firstName: '',
@@ -68,13 +67,13 @@ const UserProfiles = () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       }
-    }, token!);
+    }, token ?? undefined);
     
     if (response && response.data) {
       localStorage.setItem('profile', JSON.stringify(response.data));
-      // if (updateProfile) {
-      //   updateProfile(response.data);
-      // }
+      if (updateProfile) {
+        updateProfile(response.data);
+      }
       return response.data; // Return the updated profile
     }
   } catch (error) {
@@ -83,12 +82,16 @@ const UserProfiles = () => {
   }
 };
 
-  const togglePasswordVisibility = (field:any) => {
-    setShowPasswords((prev:any) => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
-  };
+
+type PasswordField = "current" | "new" | "confirm";
+
+const togglePasswordVisibility = (field: PasswordField) => {
+  setShowPasswords(prev => ({
+    ...prev,
+    [field]: !prev[field],
+  }));
+};
+
 
   const resetPasswordForm = () => {
     setPasswordForm({
@@ -103,25 +106,25 @@ const UserProfiles = () => {
     });
   };
 
-  const handleUserSubmit = async (e:any) => {
+  const handleUserSubmit = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // const response = await apiCall(
-      //   '/update-detail', 
-      //   {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //       'Authorization': `Bearer ${token}`
-      //     },
-      //     body: JSON.stringify({
-      //       firstName: userForm.firstName,
-      //       lastName: userForm.lastName,
-      //       phone: userForm.phone,
-      //     })
-      //   }
-      // );
+       await apiCall(
+        '/update-detail', 
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            firstName: userForm.firstName,
+            lastName: userForm.lastName,
+            phone: userForm.phone,
+          })
+        }
+      );
       
       Toast.fire({
         icon: 'success',
@@ -130,36 +133,36 @@ const UserProfiles = () => {
       window.location.reload();
       await refreshProfile();
       setShowUserForm(false);
-    } catch (error:any) {
+    } catch (error) {
       console.error('Update user details error:', error);
       Toast.fire({
         icon: 'error',
-        title: error.message || 'Failed to update user details',
+        title: (error instanceof Error && error.message) ? error.message : 'Failed to update user details',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCompanySubmit = async (e:any) => {
+  const handleCompanySubmit = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // const response = await apiCall(
-      //   '/update-company-detail', 
-      //   {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //       'Authorization': `Bearer ${token}`
-      //     },
-      //     body: JSON.stringify({
-      //       name: companyForm.name,
-      //       website: companyForm.website,
-      //       business: companyForm.business,
-      //     })
-      //   }
-      // );
+       await apiCall(
+        '/update-company-detail', 
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: companyForm.name,
+            website: companyForm.website,
+            business: companyForm.business,
+          })
+        }
+      );
       
       Toast.fire({
         icon: 'success',
@@ -168,18 +171,18 @@ const UserProfiles = () => {
       window.location.reload();
       await refreshProfile();
       setShowCompanyForm(false);
-    } catch (error:any) {
+    } catch (error) {
       console.error('Update company details error:', error);
       Toast.fire({
         icon: 'error',
-        title: error.message || 'Failed to update company details',
+        title: (error instanceof Error && error.message) ? error.message : 'Failed to update company details',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePasswordSubmit = async (e:any) => {
+  const handlePasswordSubmit = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       Toast.fire({
@@ -190,20 +193,20 @@ const UserProfiles = () => {
     }
     setLoading(true);
     try {
-      // const response = await apiCall(
-      //   '/change-password', 
-      //   {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //       'Authorization': `Bearer ${token}`
-      //     },
-      //     body: JSON.stringify({
-      //       currentPassword: passwordForm.currentPassword,
-      //       newPassword: passwordForm.newPassword,
-      //     })
-      //   }
-      // );
+       await apiCall(
+        '/change-password', 
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            currentPassword: passwordForm.currentPassword,
+            newPassword: passwordForm.newPassword,
+          })
+        }
+      );
       
       Toast.fire({
         icon: 'success',
@@ -212,11 +215,11 @@ const UserProfiles = () => {
       
       resetPasswordForm();
       setShowPasswordForm(false);
-    } catch (error:any) {
+    } catch (error) {
       console.error('Change password error:', error);
       Toast.fire({
         icon: 'error',
-        title: error.message || 'Failed to change password',
+        title: (error instanceof Error && error.message) ? error.message : 'Failed to change password',
       });
     } finally {
       setLoading(false);
@@ -231,7 +234,7 @@ const UserProfiles = () => {
     );
   }
 
-  const getInitials = (firstName:string, lastName:string) => {
+  const getInitials = (firstName: string, lastName: string) => {
     return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
   };
 
