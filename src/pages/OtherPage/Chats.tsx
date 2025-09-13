@@ -144,7 +144,7 @@ const Chats = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [page, setPage] = useState(1); // Track pagination page
   const [isLoadingMore, setIsLoadingMore] = useState(false); // Track loading state for more data
-  const [scrollReference, setScrollReference] = useState<{messageId: string, offset: number} | null>(null); // Track scroll reference
+  const [scrollReference, setScrollReference] = useState<{ messageId: string, offset: number } | null>(null); // Track scroll reference
   const [showMediaOptions, setShowMediaOptions] = useState(false); // Track media options visibility
 
   const messageContainerRef = useRef<HTMLDivElement>(null);
@@ -167,27 +167,27 @@ const Chats = () => {
 
   const loadChatMessages = async (customerId: string, pageNum: number = 1, isInitialLoad: boolean = false) => {
     if (!token) return;
-  
+
     try {
       const response = await getChats(customerId, token, pageNum, 20, -1); // page, limit, sort
       if (response.status === 200 && response.data) {
         console.log('Response data:', response.data);
         console.log('Profile ID:', profile?._id);
-        
+
         const transformedMessages: Message[] = response.data.docs.map((msg: any) => {
           const fromValue = msg.from === profile?._id ? 'me' : 'them';
           console.log(`Transforming message - from: ${msg.from}, to: ${msg.to}, set to: ${fromValue}`);
-          
+
           // Determine message type and content
           let messageType = 'text';
           let messageContent = msg.content?.text || '';
-          
+
           if (msg.content?.media && msg.content.media.length > 0) {
             const media = msg.content.media[0]; // Take first media item
             messageType = media.type || 'image';
             messageContent = media.url || '';
           }
-          
+
           return {
             _id: msg._id,
             id: msg._id,
@@ -209,24 +209,24 @@ const Chats = () => {
         } else {
           // Loading more: prepend older messages and maintain reference position
           console.log('📥 Loading more messages, current reference:', scrollReference);
-          
+
           const container = messageContainerRef.current;
           if (container) {
             // Store current scroll position before updating
             const prevScrollTop = container.scrollTop;
             const prevScrollHeight = container.scrollHeight;
-            
+
             // Prepend new older messages
             setMessages((prevMessages) => [...transformedMessages.reverse(), ...prevMessages]);
             console.log('📥 Prepended', transformedMessages.length, 'older messages');
-            
+
             // Restore scroll position using height difference
             requestAnimationFrame(() => {
               if (container) {
                 const newScrollHeight = container.scrollHeight;
                 const heightDifference = newScrollHeight - prevScrollHeight;
                 const newScrollTop = prevScrollTop + heightDifference;
-                
+
                 console.log('📍 Restoring scroll position:', {
                   prevScrollTop,
                   prevScrollHeight,
@@ -234,9 +234,9 @@ const Chats = () => {
                   heightDifference,
                   newScrollTop
                 });
-                
+
                 container.scrollTop = newScrollTop;
-                
+
                 // Verify the scroll position was set correctly
                 setTimeout(() => {
                   console.log('✅ Final scroll position:', container.scrollTop);
@@ -267,17 +267,17 @@ const Chats = () => {
       if (response.status === 200 && response.data) {
         const transformedMessages: Message[] = response.data.map((msg: any) => {
           const fromValue = msg.from === profile?._id ? 'me' : 'them';
-          
+
           // Determine message type and content
           let messageType = 'text';
           let messageContent = msg.content?.text || '';
-          
+
           if (msg.content?.media && msg.content.media.length > 0) {
             const media = msg.content.media[0]; // Take first media item
             messageType = media.type || 'image';
             messageContent = media.url || '';
           }
-          
+
           return {
             _id: msg._id,
             id: msg._id,
@@ -354,7 +354,7 @@ const Chats = () => {
 
     const container = messageContainerRef.current;
     const { scrollTop } = container;
-    
+
     // Capture reference message when near top (within 50px) and no reference set yet
     if (scrollTop <= 50 && !scrollReference && messages.length > 0) {
       // Find the first visible message as reference
@@ -362,26 +362,26 @@ const Chats = () => {
       if (messageElements.length > 0) {
         const firstVisibleMessage = messageElements[0] as HTMLElement;
         const messageId = firstVisibleMessage.getAttribute('data-message-id');
-        
+
         if (messageId) {
           // Calculate offset from top of container
           const messageRect = firstVisibleMessage.getBoundingClientRect();
           const containerRect = container.getBoundingClientRect();
           const offset = messageRect.top - containerRect.top + scrollTop;
-          
+
           setScrollReference({ messageId, offset });
           console.log('🔍 Set scroll reference:', { messageId, offset, scrollTop });
         }
       }
     }
-    
+
     // Load more messages when at top
     if (scrollTop === 0 && !isLoadingMore) {
       console.log('📥 Loading more messages, page:', page + 1);
       setIsLoadingMore(true);
       const nextPage = page + 1;
       setPage(nextPage);
-      
+
       loadChatMessages(selectedCustomer.id, nextPage, false).finally(() => {
         setIsLoadingMore(false);
       });
@@ -391,21 +391,21 @@ const Chats = () => {
   const handleMediaSelect = async (mediaType: 'image' | 'video' | 'audio' | 'document') => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = mediaType === 'image' ? 'image/*' : 
-                  mediaType === 'video' ? 'video/*' : 
-                  mediaType === 'audio' ? 'audio/*' : 
-                  '.pdf,.doc,.docx,.txt,.xlsx,.xls';
-    
+    input.accept = mediaType === 'image' ? 'image/*' :
+      mediaType === 'video' ? 'video/*' :
+        mediaType === 'audio' ? 'audio/*' :
+          '.pdf,.doc,.docx,.txt,.xlsx,.xls';
+
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
         return;
       }
-      
+
       console.log('Selected file:', file.name, 'Type:', mediaType);
-      
+
       setIsSendingMessage(true);
-      
+
       // Create a temporary message to show in UI
       const tempMessage: Message = {
         id: Date.now().toString(),
@@ -414,11 +414,11 @@ const Chats = () => {
         content: file.name,
         time: new Date().toLocaleTimeString(),
       };
-      
+
       try {
         // Add temporary message to UI
         setMessages(prev => [...prev, tempMessage]);
-        
+
         // Send media through API
         const response = await sendWhatsAppMedia(
           profile.company._id,
@@ -431,19 +431,19 @@ const Chats = () => {
           false,
           token
         );
-        
+
         if (response.success) {
           Toast.fire({
             icon: 'success',
             title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} sent successfully!`
           });
-          
+
           // Reload messages to get the actual sent message
           await loadChatMessages(selectedCustomer.id, 1, true);
         } else {
           // Remove temporary message on failure
           setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-          
+
           Toast.fire({
             icon: 'error',
             title: response.message || `Failed to send ${mediaType}`
@@ -451,10 +451,10 @@ const Chats = () => {
         }
       } catch (error) {
         console.error('Error sending media:', error);
-        
+
         // Remove temporary message on error
         setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-        
+
         Toast.fire({
           icon: 'error',
           title: `Failed to send ${mediaType}. Please try again.`
@@ -463,7 +463,7 @@ const Chats = () => {
         setIsSendingMessage(false);
       }
     };
-    
+
     input.click();
     setShowMediaOptions(false);
   };
@@ -683,7 +683,7 @@ const Chats = () => {
 
   const getMedia = (type: "image" | "video" | "audio" | "document") =>
     messages.filter((m) => m.type === type);
-  const getMedia = (type: 'image' | 'video' | 'audio' | 'document') => messages.filter((m) => m.type === type);
+  // const getMedia = (type: 'image' | 'video' | 'audio' | 'document') => messages.filter((m) => m.type === type);
 
   return (
     <div className="flex max-h-[calc(100vh-77px)] overflow-hidden bg-gray-100 dark:bg-gray-900">
@@ -777,7 +777,7 @@ const Chats = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
-                
+
                 {/* Media Options Dropdown */}
                 {showMediaOptions && (
                   <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 z-10">
@@ -826,7 +826,7 @@ const Chats = () => {
                   </div>
                 )}
               </div>
-              
+
               <input
                 type="text"
                 value={newMessage}
@@ -1064,8 +1064,8 @@ const Chats = () => {
                 {showAllStarred
                   ? "Starred Messages"
                   : showAllMedia
-                  ? "Media, docs and links"
-                  : "Contact Info"}
+                    ? "Media, docs and links"
+                    : "Contact Info"}
               </h2>
               <button
                 onClick={() => setShowProfileModal(false)}
@@ -1281,7 +1281,6 @@ const Chats = () => {
                         })}
                       </div>
                     )}
-                    {selectedMediaType === "video" && (
                     {selectedMediaType === 'video' && (
                       <div className="grid grid-cols-3 gap-2">
                         {getMedia('video').map((m) => {
@@ -1320,35 +1319,16 @@ const Chats = () => {
       )}
 
       {showSearchModal && selectedCustomer?.id && (
-        <div
-          className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50"
-          onClick={() => setShowSearchModal(false)}
-        >
-          <div
-            className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50" onClick={() => setShowSearchModal(false)}>
+          <div className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Search Messages
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Search Messages</h2>
               <button
                 onClick={() => setShowSearchModal(false)}
                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
@@ -1360,6 +1340,14 @@ const Chats = () => {
                 onChange={(e) => setChatSearchQuery(e.target.value)}
                 className="w-full p-2 border rounded-lg mb-4 dark:bg-gray-800 dark:text-white dark:border-gray-600"
               />
+              <div className="space-y-4 bg-green-50 p-4 rounded-lg min-h-[400px] relative">
+                {isSearching ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
+                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Searching...</span>
+                  </div>
+                ) : chatSearchQuery && searchResults.length > 0 ? (
+                  searchResults.map((msg) => renderMessage(msg))
                 ) : chatSearchQuery ? (
                   <div className="flex justify-center items-center py-8">
                     <p className="text-sm text-gray-600 dark:text-gray-400">No messages found.</p>
