@@ -36,6 +36,20 @@ const getInitials = (name: string): string => {
   return nameParts[0][0].toUpperCase();
 };
 
+// Function to format ISO timestamp to a readable date and time
+const formatDateTime = (isoString: string): string => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
 const CustomerList: React.FC<CustomerListProps> = (props) => {
   const [showMenu, setShowMenu] = useState<string | null>(null);
 
@@ -44,12 +58,12 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
       try {
         const token = localStorage.getItem('token');
         const response = await axios.post(
-          `${import.meta.env.VITE_API_BASE}/get-customers`,
+          `${import.meta.env.VITE_API_BASE}/get-last-chats`,
           {
             search: props.search,
             page: 1,
             limit: 100,
-            tags: [],
+            filter: props.filter,
           },
           {
             headers: {
@@ -60,14 +74,14 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
 
         const fetchedCustomers: Customer[] = response.data.data.docs.map((doc: any) => ({
           id: doc._id,
-          name: doc.name || `${doc.user?.profile?.firstName || ''} ${doc.user?.profile?.lastName || ''}`.trim(),
-          phone: doc.phone,
-          lastMessage: doc.lastMessage || '',
-          lastTime: doc.lastTime || '',
-          unread: doc.unread || 0,
-          pinned: doc.isPinned || false, // Updated to match backend field
+          name: doc.name || '',
+          phone: doc.phone || '',
+          lastMessage: doc.lastChat || '',
+          lastTime: doc.lastChatAt || '',
+          unread: doc.unreadCount || 0,
+          pinned: doc.isPinned || false,
           isBlocked: doc.isBlocked || false,
-          email: doc.email || doc.user?.email,
+          email: doc.email || '',
           label: doc.label || '',
         }));
 
@@ -79,7 +93,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
     };
 
     fetchCustomers();
-  }, [props.search, props.refresh]);
+  }, [props.search, props.filter, props.refresh]);
 
   const handlePin = async (customerId: string) => {
     try {
@@ -116,7 +130,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
   };
 
   const filteredCustomers = props.customers
-    .filter((c) => (props.filter === 'all' || (props.filter === 'unread' && c.unread > 0)) && c.name.toLowerCase().includes(props.search.toLowerCase()))
+    .filter((c) => c.name.toLowerCase().includes(props.search.toLowerCase()))
     .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
   return (
@@ -181,7 +195,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
                 )}
                 {customer.pinned && <span className="text-sm text-gray-500 ml-1 mb-1">📌</span>}
               </div>
-              <span className="text-xs text-gray-500">{customer.lastTime}</span>
+              <span className="text-xs text-gray-500">{formatDateTime(customer.lastTime)}</span>
             </div>
             <div className="relative">
               <button
