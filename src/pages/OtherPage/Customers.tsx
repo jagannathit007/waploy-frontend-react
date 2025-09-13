@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import Swal from 'sweetalert2';
 
-// const API_BASE = "https://waploy.itfuturz.in/api/web";
 const API_BASE = import.meta.env.VITE_API_BASE;
 
 interface ApiResponse<T> {
@@ -113,12 +112,6 @@ const Customers: React.FC = () => {
     phone: '',
     email: '',
   });
-  const [originalMobile, setOriginalMobile] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [verified, setVerified] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifying, setVerifying] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -145,38 +138,6 @@ const Customers: React.FC = () => {
     country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
     country.code.includes(countrySearch)
   );
-
-  const sendOTP = async (
-    data: { mobileNo: string; name: string }
-  ): Promise<ApiResponse<number>> => {
-    try {
-      const response: AxiosResponse<ApiResponse<number>> = await api.post('/sendotp', data, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.data.status !== 200 || response.data.data !== 1) {
-        throw new Error(response.data.message || 'Failed to send OTP');
-      }
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to send OTP');
-    }
-  };
-
-  const verifyOTP = async (
-    data: { mobileNo: string; otpCode: string }
-  ): Promise<ApiResponse<number>> => {
-    try {
-      const response: AxiosResponse<ApiResponse<number>> = await api.post('/verifyotp', data, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.data.status !== 200 || response.data.data !== 1) {
-        throw new Error(response.data.message || 'Failed to verify OTP');
-      }
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to verify OTP');
-    }
-  };
 
   const getCustomers = async (
     data: { search?: string; page?: number; limit?: number }
@@ -286,24 +247,12 @@ const Customers: React.FC = () => {
       phone: '',
       email: '',
     });
-    setOriginalMobile('');
-    setOtpSent(false);
-    setOtpCode('');
-    setVerified(false);
     setShowCountryDropdown(false);
     setCountrySearch('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const currentMobile = form.countryCode + form.phone;
-    if (form.phone && (form._id ? currentMobile !== originalMobile : true) && !verified) {
-      Toast.fire({
-        icon: 'warning',
-        title: 'Please verify the mobile number',
-      });
-      return;
-    }
     setLoading(true);
     try {
       const data = {
@@ -339,53 +288,6 @@ const Customers: React.FC = () => {
     }
   };
 
-  const handleSendOTP = async () => {
-    if (!form.name || !form.countryCode || !form.phone) {
-      Toast.fire({
-        icon: 'warning',
-        title: 'Name, country code, and phone are required to send OTP',
-      });
-      return;
-    }
-    setSendingOtp(true);
-    try {
-      await sendOTP({ mobileNo: form.countryCode + form.phone, name: form.name });
-      setOtpSent(true);
-      Toast.fire({
-        icon: 'success',
-        title: 'OTP sent successfully!',
-      });
-    } catch (error: any) {
-      Toast.fire({
-        icon: 'error',
-        title: error.message || 'Failed to send OTP',
-      });
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    setVerifying(true);
-    try {
-      await verifyOTP({ mobileNo: form.countryCode + form.phone, otpCode });
-      setVerified(true);
-      setOtpSent(false);
-      setOtpCode('');
-      Toast.fire({
-        icon: 'success',
-        title: 'OTP verified successfully!',
-      });
-    } catch (error: any) {
-      Toast.fire({
-        icon: 'error',
-        title: error.message || 'Failed to verify OTP',
-      });
-    } finally {
-      setVerifying(false);
-    }
-  };
-
   const handleEdit = (customer: Customer) => {
     setForm({
       _id: customer._id,
@@ -394,10 +296,6 @@ const Customers: React.FC = () => {
       phone: customer.phone,
       email: customer.email,
     });
-    setOriginalMobile(customer.countryCode + customer.phone);
-    setVerified(false);
-    setOtpSent(false);
-    setOtpCode('');
     setShowForm(true);
   };
 
@@ -441,10 +339,6 @@ const Customers: React.FC = () => {
 
   const handlePhoneChange = (field: 'countryCode' | 'phone', value: string) => {
     setForm({ ...form, [field]: value });
-    const newMobile = field === 'countryCode' ? value + form.phone : form.countryCode + value;
-    if (form._id && newMobile !== originalMobile) {
-      setVerified(false);
-    }
   };
 
   const handleCountrySelect = (countryCode: string) => {
@@ -646,8 +540,7 @@ const Customers: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                    disabled={verified}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-left flex items-center justify-between"
                   >
                     <span className="flex items-center space-x-2">
                       <span>{getSelectedCountry()?.flag}</span>
@@ -691,53 +584,15 @@ const Customers: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={form.phone}
-                    onChange={(e) => handlePhoneChange('phone', e.target.value)}
-                    disabled={verified}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                    placeholder="Enter phone"
-                    required
-                  />
-                  {!verified && (
-                    <button
-                      type="button"
-                      onClick={handleSendOTP}
-                      disabled={sendingOtp || !form.countryCode || !form.phone || !form.name}
-                      className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-r-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                    >
-                      {sendingOtp ? 'Sending...' : 'Send OTP'}
-                    </button>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => handlePhoneChange('phone', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  placeholder="Enter phone"
+                  required
+                />
               </div>
-              
-              {otpSent && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">OTP Code</label>
-                    <input
-                      type="text"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                      placeholder="Enter OTP"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      onClick={handleVerifyOTP}
-                      disabled={verifying || !otpCode}
-                      className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                    >
-                      {verifying ? 'Verifying...' : 'Verify OTP'}
-                    </button>
-                  </div>
-                </div>
-              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>

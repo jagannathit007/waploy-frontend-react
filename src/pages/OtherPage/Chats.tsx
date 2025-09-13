@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import axios from 'axios';
 import CustomerList from './CustomerList';
 import AssignChat from './assignChat';
+import { Send } from 'lucide-react';
 
 interface Customer {
   id: string;
@@ -175,11 +176,11 @@ const Chats = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE}/add-customer`,
+        `${import.meta.env.VITE_API_BASE}/create-customer`,
         {
           name: form.name,
-          phone: `+${form.countryCode}${form.phone}`,
-          email: form.email,
+          phone: form.phone,
+          countryCode: form.countryCode,
         },
         {
           headers: {
@@ -187,11 +188,13 @@ const Chats = () => {
           },
         }
       );
-      if (response.data.success) {
+      if (response.data.data !== null) {
         setShowAddForm(false);
         setForm({ name: '', countryCode: '', phone: '', email: '' });
         Toast.fire({ icon: 'success', title: 'Customer added' });
         setRefresh((prev) => prev + 1);
+      }else {
+        Toast.fire({ icon: 'error', title: response.data.message || 'Failed to add customer' });
       }
     } catch (error) {
       console.error('Error adding customer:', error);
@@ -309,9 +312,9 @@ const Chats = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white"
+                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 caret-green-500"
               />
-              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-r-lg">Send</button>
+              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-r-lg"><Send className="w-5 h-5" /></button>
             </form>
           </>
         ) : (

@@ -58,7 +58,6 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
           }
         );
 
-        // Assuming response structure: { success: true, message: string, data: { docs: [], ... } }
         const fetchedCustomers: Customer[] = response.data.data.docs.map((doc: any) => ({
           id: doc._id,
           name: doc.name || `${doc.user?.profile?.firstName || ''} ${doc.user?.profile?.lastName || ''}`.trim(),
@@ -66,7 +65,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
           lastMessage: doc.lastMessage || '',
           lastTime: doc.lastTime || '',
           unread: doc.unread || 0,
-          pinned: doc.pinned || false,
+          pinned: doc.isPinned || false, // Updated to match backend field
           isBlocked: doc.isBlocked || false,
           email: doc.email || doc.user?.email,
           label: doc.label || '',
@@ -81,6 +80,40 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
 
     fetchCustomers();
   }, [props.search, props.refresh]);
+
+  const handlePin = async (customerId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_BASE}/toggle-pin-chat`,
+        { customerId },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status === 200) {
+        props.setCustomers((prevCustomers) =>
+          prevCustomers.map((customer) =>
+            customer.id === customerId
+              ? {
+                  ...customer,
+                  pinned: response.data.data.isPinned,
+                }
+              : customer
+          )
+        );
+      } else {
+        console.error('Failed to toggle pin:', response.data.message);
+        // Optionally show toast error
+      }
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      // Optionally show toast error
+    }
+  };
 
   const filteredCustomers = props.customers
     .filter((c) => (props.filter === 'all' || (props.filter === 'unread' && c.unread > 0)) && c.name.toLowerCase().includes(props.search.toLowerCase()))
@@ -103,7 +136,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
           placeholder="Search customers..."
           value={props.search}
           onChange={(e) => props.setSearch(e.target.value)}
-          className="w-full p-2 border rounded-lg mb-2 dark:bg-gray-700 dark:text-white"
+          className="w-full p-2 border rounded-lg mb-2 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 custom-caret"
         />
         <div className="flex space-x-2">
           <button
@@ -164,7 +197,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
                 <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 border rounded-lg shadow-lg z-10">
                   <button
                     onClick={() => {
-                      props.handlePin(customer.id);
+                      handlePin(customer.id);
                       setShowMenu(null);
                     }}
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"

@@ -194,6 +194,10 @@ layer(base);
   @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-lg text-theme-sm;
 }
 
+input.custom-caret {
+  caret-color: #009966; /* Custom green color */
+}
+
 @utility menu-item-active {
   @apply bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400;
 }

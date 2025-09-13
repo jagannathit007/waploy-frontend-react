@@ -1,14 +1,19 @@
-// If not, replace API_BASE with 'http://localhost:5000'
-// const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
-// const API_BASE = "https://waploy.itfuturz.in/api/web";
-const API_BASE = import.meta.env.VITE_API_BASE;
+import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 interface ApiResponse<T> {
   status: number;
   message: string;
   data?: T;
 }
+
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 export const signIn = async (
   email: string,
@@ -72,6 +77,34 @@ export const signUp = async (
     throw new Error(data.message || "Sign up failed");
   }
   return data;
+};
+
+export const sendOTP = async (
+  data: { mobileNo: string; name: string }
+): Promise<ApiResponse<number>> => {
+  try {
+    const response = await api.post('/sendotp', data);
+    if (response.data.status !== 200 || response.data.data !== 1) {
+      throw new Error(response.data.message || 'Failed to send OTP');
+    }
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to send OTP');
+  }
+};
+
+export const verifyOTP = async (
+  data: { mobileNo: string; otpCode: string }
+): Promise<ApiResponse<number>> => {
+  try {
+    const response = await api.post('/verifyotp', data);
+    if (response.data.status !== 200 || response.data.data !== 1) {
+      throw new Error(response.data.message || 'Failed to verify OTP');
+    }
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to verify OTP');
+  }
 };
 
 export const getProfile = async (token: string): Promise<ApiResponse<any>> => {
