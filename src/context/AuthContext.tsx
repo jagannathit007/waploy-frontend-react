@@ -10,6 +10,7 @@ interface UserProfile {
     phone: string;
   };
   company: {
+    _id?: string;
     name: string;
     logo?: string;
     website?: string;
