@@ -52,10 +52,16 @@ const navItems: NavItem[] = [
     name: "Chats",
     path: "/chats",
   },
+
   {
     icon: <CreditCard />,
     name: "Subscription",
     path: "/subscription",
+  },
+  {
+    icon: <HorizontaLDots />,
+    name: "Lables",
+    path: "/lables",
   },
   {
     icon: <Settings />,
