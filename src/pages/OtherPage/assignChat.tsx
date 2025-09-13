@@ -274,7 +274,7 @@ const AssignChat: React.FC<AssignChatProps> = ({ selectedCustomer, onAssignmentC
      {/* Assign Chat Modal */}
 {showAssignModal && (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-[999] flex items-center justify-center p-4">
-    <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-6xl w-full mx-auto border-0 transform transition-all">
+    <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-5xl w-full mx-auto border-0 transform transition-all">
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4 rounded-t-3xl">
         <div className="flex items-center justify-between">

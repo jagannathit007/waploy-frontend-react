@@ -5,6 +5,7 @@ interface Customer {
   id: string;
   name: string;
   phone: string;
+  countryCode?: string;
   lastMessage: string;
   lastTime: string;
   unread: number;
@@ -63,6 +64,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
           id: doc._id,
           name: doc.name || `${doc.user?.profile?.firstName || ''} ${doc.user?.profile?.lastName || ''}`.trim(),
           phone: doc.phone,
+          countryCode: doc.countryCode,
           lastMessage: doc.lastMessage || '',
           lastTime: doc.lastTime || '',
           unread: doc.unread || 0,
