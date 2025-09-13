@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import CustomerList from './CustomerList';
 import AssignChat from './assignChat';
-import { sendWhatsAppMessage, getChats, searchChats } from '../../services/api/whatsappService';
+import { sendWhatsAppMessage, sendWhatsAppMedia, getChats, searchChats } from '../../services/api/whatsappService';
 import { useAuth } from '../../context/AuthContext';
 
 interface Customer {
@@ -81,6 +81,12 @@ const Chats = () => {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [searchResults, setSearchResults] = useState<Message[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [page, setPage] = useState(1); // Track pagination page
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // Track loading state for more data
+  const [scrollReference, setScrollReference] = useState<{messageId: string, offset: number} | null>(null); // Track scroll reference
+  const [showMediaOptions, setShowMediaOptions] = useState(false); // Track media options visibility
+
+  const messageContainerRef = useRef<HTMLDivElement>(null);
 
   const Toast = Swal.mixin({
     toast: true,
@@ -98,35 +104,92 @@ const Chats = () => {
     return nameParts[0][0].toUpperCase();
   };
 
-  const loadChatMessages = async (customerId: string) => {
+  const loadChatMessages = async (customerId: string, pageNum: number = 1, isInitialLoad: boolean = false) => {
     if (!token) return;
-
+  
     try {
-      const response = await getChats(customerId, token);
+      const response = await getChats(customerId, token, pageNum, 20, -1); // page, limit, sort
       if (response.status === 200 && response.data) {
         console.log('Response data:', response.data);
         console.log('Profile ID:', profile?._id);
+        
         const transformedMessages: Message[] = response.data.docs.map((msg: any) => {
           const fromValue = msg.from === profile?._id ? 'me' : 'them';
           console.log(`Transforming message - from: ${msg.from}, to: ${msg.to}, set to: ${fromValue}`);
+          
+          // Determine message type and content
+          let messageType = 'text';
+          let messageContent = msg.content?.text || '';
+          
+          if (msg.content?.media && msg.content.media.length > 0) {
+            const media = msg.content.media[0]; // Take first media item
+            messageType = media.type || 'image';
+            messageContent = media.url || '';
+          }
+          
           return {
             _id: msg._id,
             id: msg._id,
             from: fromValue,
             to: msg.to,
-            type: msg.content?.media && msg.content.media.length > 0 ? 'image' : 'text',
-            content: msg.content?.text || '',
+            type: messageType,
+            content: messageContent,
             time: new Date(msg.createdAt).toLocaleTimeString(),
             createdAt: msg.createdAt,
             status: msg.status
           };
         });
-        setMessages(transformedMessages);
-        console.log('Transformed messages:', transformedMessages);
+
+        if (isInitialLoad) {
+          // Initial load: replace messages and scroll to bottom
+          setMessages(transformedMessages.reverse());
+          setScrollReference(null); // Clear reference for initial load
+          console.log('🚀 Initial load - transformed messages:', transformedMessages.length);
+        } else {
+          // Loading more: prepend older messages and maintain reference position
+          console.log('📥 Loading more messages, current reference:', scrollReference);
+          
+          const container = messageContainerRef.current;
+          if (container) {
+            // Store current scroll position before updating
+            const prevScrollTop = container.scrollTop;
+            const prevScrollHeight = container.scrollHeight;
+            
+            // Prepend new older messages
+            setMessages((prevMessages) => [...transformedMessages.reverse(), ...prevMessages]);
+            console.log('📥 Prepended', transformedMessages.length, 'older messages');
+            
+            // Restore scroll position using height difference
+            requestAnimationFrame(() => {
+              if (container) {
+                const newScrollHeight = container.scrollHeight;
+                const heightDifference = newScrollHeight - prevScrollHeight;
+                const newScrollTop = prevScrollTop + heightDifference;
+                
+                console.log('📍 Restoring scroll position:', {
+                  prevScrollTop,
+                  prevScrollHeight,
+                  newScrollHeight,
+                  heightDifference,
+                  newScrollTop
+                });
+                
+                container.scrollTop = newScrollTop;
+                
+                // Verify the scroll position was set correctly
+                setTimeout(() => {
+                  console.log('✅ Final scroll position:', container.scrollTop);
+                }, 100);
+              }
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading chat messages:', error);
-      setMessages(dummyChats[customerId] || []);
+      if (isInitialLoad) {
+        setMessages(dummyChats[customerId] || []);
+      }
     }
   };
 
@@ -141,19 +204,32 @@ const Chats = () => {
     try {
       const response = await searchChats(selectedCustomer.id, searchQuery, token);
       if (response.status === 200 && response.data) {
-        // Transform backend messages to frontend format
-        const transformedMessages: Message[] = response.data.map((msg: any) => ({
-          _id: msg._id,
-          id: msg._id,
-          from: msg.from === selectedCustomer.id ? 'them' : 'me',
-          to: msg.to,
-          type: msg.content?.media && msg.content.media.length > 0 ? 'image' : 'text',
-          content: msg.content?.text || '',
-          time: new Date(msg.createdAt).toLocaleTimeString(),
-          createdAt: msg.createdAt,
-          status: msg.status
-        }));
-        setSearchResults(transformedMessages);
+        const transformedMessages: Message[] = response.data.map((msg: any) => {
+          const fromValue = msg.from === profile?._id ? 'me' : 'them';
+          
+          // Determine message type and content
+          let messageType = 'text';
+          let messageContent = msg.content?.text || '';
+          
+          if (msg.content?.media && msg.content.media.length > 0) {
+            const media = msg.content.media[0]; // Take first media item
+            messageType = media.type || 'image';
+            messageContent = media.url || '';
+          }
+          
+          return {
+            _id: msg._id,
+            id: msg._id,
+            from: fromValue,
+            to: msg.to,
+            type: messageType,
+            content: messageContent,
+            time: new Date(msg.createdAt).toLocaleTimeString(),
+            createdAt: msg.createdAt,
+            status: msg.status
+          };
+        });
+        setSearchResults(transformedMessages.reverse());
       } else {
         setSearchResults([]);
       }
@@ -167,7 +243,10 @@ const Chats = () => {
 
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
-    loadChatMessages(customer.id);
+    setPage(1); // Reset page when selecting a new customer
+    setMessages([]); // Clear previous messages
+    setScrollReference(null); // Clear scroll reference
+    loadChatMessages(customer.id, 1, true); // Initial load
   };
 
   // Debounced search effect
@@ -178,18 +257,161 @@ const Chats = () => {
       } else {
         setSearchResults([]);
       }
-    }, 500); // 500ms delay
+    }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [chatSearchQuery]);
 
+  // Close media options when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showMediaOptions) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.media-options-container')) {
+          setShowMediaOptions(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMediaOptions]);
+
+  // Scroll to bottom when messages change (only for initial load or new messages)
+  useEffect(() => {
+    if (messageContainerRef.current && !isLoadingMore && !scrollReference) {
+      console.log('📜 Auto-scrolling to bottom (no reference set)');
+      messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+    }
+  }, [messages, isLoadingMore, scrollReference]);
+
+  // Handle scroll to load more messages with reference tracking
+  const handleScroll = () => {
+    if (!messageContainerRef.current || !selectedCustomer || isLoadingMore) return;
+
+    const container = messageContainerRef.current;
+    const { scrollTop } = container;
+    
+    // Capture reference message when near top (within 50px) and no reference set yet
+    if (scrollTop <= 50 && !scrollReference && messages.length > 0) {
+      // Find the first visible message as reference
+      const messageElements = container.querySelectorAll('[data-message-id]');
+      if (messageElements.length > 0) {
+        const firstVisibleMessage = messageElements[0] as HTMLElement;
+        const messageId = firstVisibleMessage.getAttribute('data-message-id');
+        
+        if (messageId) {
+          // Calculate offset from top of container
+          const messageRect = firstVisibleMessage.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const offset = messageRect.top - containerRect.top + scrollTop;
+          
+          setScrollReference({ messageId, offset });
+          console.log('🔍 Set scroll reference:', { messageId, offset, scrollTop });
+        }
+      }
+    }
+    
+    // Load more messages when at top
+    if (scrollTop === 0 && !isLoadingMore) {
+      console.log('📥 Loading more messages, page:', page + 1);
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      setPage(nextPage);
+      
+      loadChatMessages(selectedCustomer.id, nextPage, false).finally(() => {
+        setIsLoadingMore(false);
+      });
+    }
+  };
+
+  const handleMediaSelect = async (mediaType: 'image' | 'video' | 'audio' | 'document') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = mediaType === 'image' ? 'image/*' : 
+                  mediaType === 'video' ? 'video/*' : 
+                  mediaType === 'audio' ? 'audio/*' : 
+                  '.pdf,.doc,.docx,.txt,.xlsx,.xls';
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
+        return;
+      }
+      
+      console.log('Selected file:', file.name, 'Type:', mediaType);
+      
+      setIsSendingMessage(true);
+      
+      // Create a temporary message to show in UI
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        from: profile._id,
+        type: mediaType,
+        content: file.name,
+        time: new Date().toLocaleTimeString(),
+      };
+      
+      try {
+        // Add temporary message to UI
+        setMessages(prev => [...prev, tempMessage]);
+        
+        // Send media through API
+        const response = await sendWhatsAppMedia(
+          profile.company._id,
+          selectedCustomer.phone,
+          file,
+          mediaType,
+          '', // caption
+          selectedCustomer.id,
+          profile._id,
+          false,
+          token
+        );
+        
+        if (response.success) {
+          Toast.fire({
+            icon: 'success',
+            title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} sent successfully!`
+          });
+          
+          // Reload messages to get the actual sent message
+          await loadChatMessages(selectedCustomer.id, 1, true);
+        } else {
+          // Remove temporary message on failure
+          setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+          
+          Toast.fire({
+            icon: 'error',
+            title: response.message || `Failed to send ${mediaType}`
+          });
+        }
+      } catch (error) {
+        console.error('Error sending media:', error);
+        
+        // Remove temporary message on error
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+        
+        Toast.fire({
+          icon: 'error',
+          title: `Failed to send ${mediaType}. Please try again.`
+        });
+      } finally {
+        setIsSendingMessage(false);
+      }
+    };
+    
+    input.click();
+    setShowMediaOptions(false);
+  };
+
   const handleAssignmentComplete = () => {
-    // Refresh customer data or perform any updates after assignment
     Toast.fire({
-      icon: "success",
-      title: "Chat assignment completed successfully!",
+      icon: 'success',
+      title: 'Chat assignment completed successfully!',
     });
-    // You can add any additional logic here like refreshing customer list
   };
 
   const handlePin = async (id: string) => {
@@ -199,11 +421,7 @@ const Chats = () => {
       const response = await axios.put(
         `${import.meta.env.VITE_API_BASE}/update-customer/${id}`,
         { pinned: !customer?.pinned },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       if (response.data.success) {
         setCustomers(customers.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)));
@@ -222,11 +440,7 @@ const Chats = () => {
       const response = await axios.put(
         `${import.meta.env.VITE_API_BASE}/update-customer/${id}`,
         { isBlocked: !customer?.isBlocked },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       if (response.data.success) {
         setCustomers(customers.map((c) => (c.id === id ? { ...c, isBlocked: !c.isBlocked } : c)));
@@ -241,14 +455,9 @@ const Chats = () => {
   const handleDelete = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.delete(
-        `${import.meta.env.VITE_API_BASE}/delete-customer/${id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await axios.delete(`${import.meta.env.VITE_API_BASE}/delete-customer/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
       if (response.data.success) {
         setCustomers(customers.filter((c) => c.id !== id));
         if (selectedCustomer?.id === id) setSelectedCustomer(null);
@@ -272,11 +481,7 @@ const Chats = () => {
           phone: `+${form.countryCode}${form.phone}`,
           email: form.email,
         },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       if (response.data.success) {
         setShowAddForm(false);
@@ -299,7 +504,7 @@ const Chats = () => {
     try {
       const newMsg: Message = {
         id: Date.now().toString(),
-        from: profile?._id, // Use profile._id instead of 'me'
+        from: profile?._id,
         type: 'text',
         content: newMessage,
         time: new Date().toLocaleTimeString(),
@@ -323,17 +528,13 @@ const Chats = () => {
       );
 
       if (response.success) {
-        Toast.fire({
-          icon: 'success',
-          title: 'Message sent successfully!'
-        });
         if (selectedCustomer) {
-          await loadChatMessages(selectedCustomer.id);
+          await loadChatMessages(selectedCustomer.id, 1, true);
         }
       } else {
         Toast.fire({
           icon: 'error',
-          title: response.message || 'Failed to send message'
+          title: response.message || 'Failed to send message',
         });
       }
 
@@ -342,7 +543,7 @@ const Chats = () => {
       console.error('Error sending message:', error);
       Toast.fire({
         icon: 'error',
-        title: 'Failed to send message. Please try again.'
+        title: 'Failed to send message. Please try again.',
       });
     } finally {
       setIsSendingMessage(false);
@@ -354,63 +555,65 @@ const Chats = () => {
     console.log('Rendering message - from:', msg.from, 'isMe:', isMe);
     const messageContent = msg.content;
 
-    // Format time to show only hour:minute AM/PM
-    const formatTime = (timeString: string) => {
-      const date = new Date(timeString);
-      return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-    };
-
     let content;
 
     switch (msg.type) {
       case 'image':
-        content = <img src={messageContent} alt="Image" className="max-w-xs rounded-lg" />;
+        content = <img src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} alt="Image" className="max-w-xs rounded-lg" />;
         break;
       case 'video':
-        content = <video src={messageContent} controls className="max-w-xs rounded-lg" />;
+        content = <video src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} controls className="max-w-xs rounded-lg" />;
         break;
       case 'audio':
-        content = <audio src={messageContent} controls />;
+        content = <audio src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} controls />;
         break;
       case 'document':
-        content = <a href={messageContent} className="text-blue-500">{messageContent}</a>;
+        content = <a href={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} className="text-blue-500" target="_blank" rel="noopener noreferrer">{messageContent}</a>;
         break;
       case 'contact':
         content = <div className="bg-gray-100 p-2 rounded">{messageContent}</div>;
         break;
       default:
-        content = <p className="text-white">{messageContent}</p>;
+        content = <p className="text-white break-words whitespace-pre-wrap message-text">{messageContent}</p>;
     }
 
     return (
-      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
-        <div className={`relative max-w-xs px-3 py-2 rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
-          {/* Arrow SVG (as previously suggested) */}
+      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`} data-message-id={msg._id || msg.id}>
+        <div className={`relative max-w-xs px-3 py-2 rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} overflow-wrap-anywhere`}>
           {isMe ? (
-            <svg className="absolute top-0 right-[-6px] w-3 h-3 text-green-500 transform rotate-90" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              className="absolute top-0 right-[-5px] w-3 h-3 text-green-500 transform rotate-90"
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
             </svg>
           ) : (
-            <svg className="absolute top-0 left-[-6px] w-3 h-3 text-gray-600 -scale-x-100" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              className="absolute top-0 left-[-5px] w-3 h-3 text-gray-600 transform rotate-90"
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
             </svg>
           )}
 
-          {content}
-
-          <div className={`flex items-center justify-end mt-1 ${isMe ? 'text-green-100' : 'text-gray-300'}`}>
-            <span className="text-xs">
-              {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : msg.time}
-            </span>
-            {isMe && (
-              <span className="ml-1 text-xs">
-                {msg.status === 'read' ? '✓✓' : msg.status === 'delivered' ? '✓✓' : '✓'}
+          <div className="flex items-end justify-end">
+            {content}
+            <div className={`flex items-center ml-1 ${isMe ? 'text-green-100' : 'text-gray-300'}`}>
+              <span className="text-[10px]">
+                {msg.createdAt
+                  ? new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                  : msg.time}
               </span>
-            )}
+              {isMe && (
+                <span className="ml-1 text-[10px]">
+                  {msg.status === 'read' ? '✓✓' : msg.status === 'delivered' ? '✓✓' : '✓'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -470,11 +673,81 @@ const Chats = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 bg-green-50 relative">
+            <div
+              ref={messageContainerRef}
+              className="flex-1 overflow-y-auto p-4 bg-green-50 relative"
+              onScroll={handleScroll} // Add scroll event listener
+            >
+              {isLoadingMore && (
+                <div className="flex justify-center items-center py-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading more messages...</span>
+                </div>
+              )}
               {messages.map(renderMessage)}
             </div>
 
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex">
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex relative">
+              {/* Plus Icon for Media */}
+              <div className="relative media-options-container">
+                <button
+                  type="button"
+                  onClick={() => setShowMediaOptions(!showMediaOptions)}
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mr-2"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                
+                {/* Media Options Dropdown */}
+                {showMediaOptions && (
+                  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 z-10">
+                    <div className="flex flex-col space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('image')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('video')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Video
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('audio')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        Audio
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMediaSelect('document')}
+                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Document
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <input
                 type="text"
                 value={newMessage}
@@ -739,7 +1012,7 @@ const Chats = () => {
                     </button>
                     <button
                       onClick={() => handleDelete(selectedCustomer.id)}
-                      className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                      className="w-flex px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                     >
                       Delete chat
                     </button>

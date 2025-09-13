@@ -60,6 +60,9 @@ export const sendWhatsAppMedia = async (
   file: File,
   mediaType: string,
   caption: string = '',
+  customerId: string,
+  userId: string,
+  isPrivate: boolean = false,
   token: string
 ): Promise<WhatsAppMessageResponse> => {
   try {
@@ -68,6 +71,19 @@ export const sendWhatsAppMedia = async (
     formData.append('phoneNumber', phoneNumber);
     formData.append('mediaType', mediaType);
     formData.append('caption', caption);
+    formData.append('customerId', customerId);
+    formData.append('userId', userId);
+    formData.append('isPrivate', isPrivate.toString());
+
+    console.log('Sending WhatsApp media:', {
+      phoneNumber,
+      customerId,
+      userId,
+      isPrivate,
+      mediaType,
+      fileName: file.name,
+      fileSize: file.size
+    });
 
     const response = await fetch(`${import.meta.env.VITE_API_BASE}/whatsapp/${companyId}/send-media`, {
       method: 'POST',
@@ -153,7 +169,7 @@ export const getChats = async (
   customerId: string,
   token: string,
   page: number = 1,
-  limit: number = 50,
+  limit: number = 20,
   sort: number = -1
 ): Promise<any> => {
   try {
