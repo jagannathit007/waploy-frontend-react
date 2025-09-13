@@ -26,7 +26,7 @@ interface Message {
   from: 'me' | 'them' | string;
   to?: string;
   type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'contact';
-  content: string | { text?: string; media?: string };
+  content: string;
   time: string;
   createdAt?: string;
   status?: string;
@@ -100,27 +100,32 @@ const Chats = () => {
 
   const loadChatMessages = async (customerId: string) => {
     if (!token) return;
-    
+
     try {
       const response = await getChats(customerId, token);
       if (response.status === 200 && response.data) {
-        // Transform backend messages to frontend format
-        const transformedMessages: Message[] = response.data.docs.map((msg: any) => ({
-          _id: msg._id,
-          id: msg._id,
-          from: msg.from === customerId ? 'them' : 'me',
-          to: msg.to,
-          type: msg.content?.media ? 'image' : 'text',
-          content: msg.content?.text || msg.content?.media || '',
-          time: new Date(msg.createdAt).toLocaleTimeString(),
-          createdAt: msg.createdAt,
-          status: msg.status
-        }));
+        console.log('Response data:', response.data);
+        console.log('Profile ID:', profile?._id);
+        const transformedMessages: Message[] = response.data.docs.map((msg: any) => {
+          const fromValue = msg.from === profile?._id ? 'me' : 'them';
+          console.log(`Transforming message - from: ${msg.from}, to: ${msg.to}, set to: ${fromValue}`);
+          return {
+            _id: msg._id,
+            id: msg._id,
+            from: fromValue,
+            to: msg.to,
+            type: msg.content?.media && msg.content.media.length > 0 ? 'image' : 'text',
+            content: msg.content?.text || '',
+            time: new Date(msg.createdAt).toLocaleTimeString(),
+            createdAt: msg.createdAt,
+            status: msg.status
+          };
+        });
         setMessages(transformedMessages);
+        console.log('Transformed messages:', transformedMessages);
       }
     } catch (error) {
       console.error('Error loading chat messages:', error);
-      // Fallback to dummy data if API fails
       setMessages(dummyChats[customerId] || []);
     }
   };
@@ -130,9 +135,9 @@ const Chats = () => {
       setSearchResults([]);
       return;
     }
-    
+
     setIsSearching(true);
-    
+
     try {
       const response = await searchChats(selectedCustomer.id, searchQuery, token);
       if (response.status === 200 && response.data) {
@@ -142,8 +147,8 @@ const Chats = () => {
           id: msg._id,
           from: msg.from === selectedCustomer.id ? 'them' : 'me',
           to: msg.to,
-          type: msg.content?.media ? 'image' : 'text',
-          content: msg.content?.text || msg.content?.media || '',
+          type: msg.content?.media && msg.content.media.length > 0 ? 'image' : 'text',
+          content: msg.content?.text || '',
           time: new Date(msg.createdAt).toLocaleTimeString(),
           createdAt: msg.createdAt,
           status: msg.status
@@ -288,45 +293,40 @@ const Chats = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) return;
-    
+
     setIsSendingMessage(true);
-    
+
     try {
-      // Create the message object first to show it immediately
       const newMsg: Message = {
         id: Date.now().toString(),
-        from: 'me',
+        from: profile?._id, // Use profile._id instead of 'me'
         type: 'text',
         content: newMessage,
         time: new Date().toLocaleTimeString(),
       };
-      
-      // Add message to UI immediately for better UX
+
       setMessages([...messages, newMsg]);
       setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c)));
-      
-      // Call WhatsApp API
-      // Send only the phone number without country code
+
       const phoneNumber = selectedCustomer.phone;
-      
+
       console.log('Phone number being sent:', phoneNumber);
-      
+
       const response = await sendWhatsAppMessage(
-        profile.company._id,        // companyId
-        phoneNumber,                 // phoneNumber (only phone, no country code)
-        newMessage,                  // message
-        selectedCustomer.id,         // customerId
-        profile._id,                 // userId (user's _id from profile)
-        false,                       // isPrivate (default false)
-        token                        // token
+        profile.company._id,
+        phoneNumber,
+        newMessage,
+        selectedCustomer.id,
+        profile._id,
+        false,
+        token
       );
-      
+
       if (response.success) {
         Toast.fire({
           icon: 'success',
           title: 'Message sent successfully!'
         });
-        // Reload chat messages to show the latest messages
         if (selectedCustomer) {
           await loadChatMessages(selectedCustomer.id);
         }
@@ -336,7 +336,7 @@ const Chats = () => {
           title: response.message || 'Failed to send message'
         });
       }
-      
+
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -350,10 +350,22 @@ const Chats = () => {
   };
 
   const renderMessage = (msg: Message) => {
-    const isMe = msg.from === 'me';
-    const messageContent = typeof msg.content === 'string' ? msg.content : msg.content?.text || '';
+    const isMe = msg.from === 'me' || msg.from === profile?._id;
+    console.log('Rendering message - from:', msg.from, 'isMe:', isMe);
+    const messageContent = msg.content;
+
+    // Format time to show only hour:minute AM/PM
+    const formatTime = (timeString: string) => {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+
     let content;
-    
+
     switch (msg.type) {
       case 'image':
         content = <img src={messageContent} alt="Image" className="max-w-xs rounded-lg" />;
@@ -371,14 +383,35 @@ const Chats = () => {
         content = <div className="bg-gray-100 p-2 rounded">{messageContent}</div>;
         break;
       default:
-        content = <p>{messageContent}</p>;
+        content = <p className="text-white">{messageContent}</p>;
     }
-    
+
     return (
       <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
-        <div className={`max-w-xs px-4 py-2 rounded-lg ${isMe ? 'bg-green-100 text-right' : 'bg-gray-100 text-left'}`}>
+        <div className={`relative max-w-xs px-3 py-2 rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+          {/* Arrow SVG (as previously suggested) */}
+          {isMe ? (
+            <svg className="absolute top-0 right-[-6px] w-3 h-3 text-green-500 transform rotate-90" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+            </svg>
+          ) : (
+            <svg className="absolute top-0 left-[-6px] w-3 h-3 text-gray-600 -scale-x-100" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+            </svg>
+          )}
+
           {content}
-          <span className="text-xs text-gray-500 ml-2">{msg.time}</span>
+
+          <div className={`flex items-center justify-end mt-1 ${isMe ? 'text-green-100' : 'text-gray-300'}`}>
+            <span className="text-xs">
+              {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : msg.time}
+            </span>
+            {isMe && (
+              <span className="ml-1 text-xs">
+                {msg.status === 'read' ? '✓✓' : msg.status === 'delivered' ? '✓✓' : '✓'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -437,7 +470,9 @@ const Chats = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">{messages.map(renderMessage)}</div>
+            <div className="flex-1 overflow-y-auto p-4 bg-green-50 relative">
+              {messages.map(renderMessage)}
+            </div>
 
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex">
               <input
@@ -448,13 +483,12 @@ const Chats = () => {
                 className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white"
                 disabled={isSendingMessage}
               />
-              <button 
-                type="submit" 
-                className={`px-4 py-2 text-white rounded-r-lg flex items-center ${
-                  isSendingMessage 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-emerald-600 hover:bg-emerald-700'
-                }`}
+              <button
+                type="submit"
+                className={`px-4 py-2 text-white rounded-r-lg flex items-center ${isSendingMessage
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
                 disabled={isSendingMessage || !newMessage.trim()}
               >
                 {isSendingMessage ? (
@@ -690,8 +724,7 @@ const Chats = () => {
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Images</h4>
                       <div className="grid grid-cols-3 gap-2">
                         {getMedia('image').slice(0, 4).map((m) => {
-                          const imageSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
-                          return <img key={m.id} src={imageSrc} alt="Image" className="w-full h-20 object-cover rounded" />;
+                          return <img key={m.id} src={m.content} alt="Image" className="w-full h-20 object-cover rounded" />;
                         })}
                       </div>
                     </div>
@@ -739,9 +772,8 @@ const Chats = () => {
                       <button
                         key={type}
                         onClick={() => setSelectedMediaType(type as 'image' | 'video' | 'audio' | 'document')}
-                        className={`px-2 py-1 rounded-lg ${
-                          selectedMediaType === type ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        }`}
+                        className={`px-2 py-1 rounded-lg ${selectedMediaType === type ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                          }`}
                       >
                         {type.charAt(0).toUpperCase() + type.slice(1)}s
                       </button>
@@ -751,26 +783,23 @@ const Chats = () => {
                     {selectedMediaType === 'image' && (
                       <div className="grid grid-cols-3 gap-2">
                         {getMedia('image').map((m) => {
-                          const imageSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
-                          return <img key={m.id} src={imageSrc} alt="Image" className="w-full h-32 object-cover rounded" />;
+                          return <img key={m.id} src={m.content} alt="Image" className="w-full h-32 object-cover rounded" />;
                         })}
                       </div>
                     )}
                     {selectedMediaType === 'video' && (
                       <div className="grid grid-cols-3 gap-2">
                         {getMedia('video').map((m) => {
-                          const videoSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
-                          return <video key={m.id} src={videoSrc} className="w-full h-32 object-cover rounded" controls />;
+                          return <video key={m.id} src={m.content} className="w-full h-32 object-cover rounded" controls />;
                         })}
                       </div>
                     )}
                     {selectedMediaType === 'audio' && (
                       <div className="space-y-2">
                         {getMedia('audio').map((m) => {
-                          const audioSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
                           return (
                             <div key={m.id}>
-                              <audio src={audioSrc} controls className="w-full" />
+                              <audio src={m.content} controls className="w-full" />
                             </div>
                           );
                         })}
@@ -779,10 +808,9 @@ const Chats = () => {
                     {selectedMediaType === 'document' && (
                       <div className="space-y-2">
                         {getMedia('document').map((m) => {
-                          const docSrc = typeof m.content === 'string' ? m.content : m.content?.media || '';
                           return (
-                            <a key={m.id} href={docSrc} className="block text-blue-500 dark:text-blue-400 mb-1">
-                              {docSrc}
+                            <a key={m.id} href={m.content} className="block text-blue-500 dark:text-blue-400 mb-1">
+                              {m.content}
                             </a>
                           );
                         })}
@@ -818,18 +846,22 @@ const Chats = () => {
                 onChange={(e) => setChatSearchQuery(e.target.value)}
                 className="w-full p-2 border rounded-lg mb-4 dark:bg-gray-800 dark:text-white dark:border-gray-600"
               />
-              <div className="space-y-4">
+              <div className="space-y-4 bg-green-50 p-4 rounded-lg min-h-[400px] relative">
                 {isSearching ? (
-                  <div className="flex justify-center items-center py-4">
+                  <div className="flex justify-center items-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
                     <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Searching...</span>
                   </div>
                 ) : chatSearchQuery && searchResults.length > 0 ? (
                   searchResults.map((msg) => renderMessage(msg))
                 ) : chatSearchQuery ? (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">No messages found.</p>
+                  <div className="flex justify-center items-center py-8">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">No messages found.</p>
+                  </div>
                 ) : (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Type to search messages.</p>
+                  <div className="flex justify-center items-center py-8">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Type to search messages.</p>
+                  </div>
                 )}
               </div>
             </div>
