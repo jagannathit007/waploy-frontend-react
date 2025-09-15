@@ -180,7 +180,7 @@ const Chats = () => {
           }
         );
         if (response.data.status === 200 && response.data.data) {
-          // setLabels(response.data.data.docs || []);
+          setLabels(response.data.data.docs || []);
         }
       } catch (error) {
         console.error("Error fetching labels:", error);
