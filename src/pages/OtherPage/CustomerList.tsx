@@ -151,18 +151,18 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
           placeholder="Search customers..."
           value={props.search}
           onChange={(e) => props.setSearch(e.target.value)}
-          className="w-full p-2 border rounded-lg mb-2 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 custom-caret"
+          className="w-full p-2 border rounded-lg mb-2 dark:bg-gray-700 dark:border-[#47546782] dark:text-white focus:outline-none focus:ring-0 custom-caret"
         />
         <div className="flex space-x-2">
           <button
             onClick={() => props.setFilter('all')}
-            className={`px-1 py-0 rounded-lg text-[12px] ${props.filter === 'all' ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white'}`}
+            className={`px-2 py-0 rounded-lg text-[12px] ${props.filter === 'all' ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white'}`}
           >
             All
           </button>
           <button
             onClick={() => props.setFilter('unread')}
-            className={`px-1 py-0 rounded-lg text-[12px] ${props.filter === 'unread' ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white'}`}
+            className={`px-2 py-0 rounded-lg text-[12px] ${props.filter === 'unread' ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white'}`}
           >
             Unread
           </button>
@@ -176,8 +176,8 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
               props.handleSelectCustomer(customer);
               setShowMenu(null);
             }}
-            className={`flex items-center px-3 py-2 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-              props.selectedCustomer?.id === customer.id ? 'bg-gray-100 dark:bg-gray-600' : ''
+            className={`flex items-center px-3 py-2 border-b dark:border-[#e4e7ec59] cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+              props.selectedCustomer?.id === customer.id ? 'bg-gray-100 dark:bg-[#4754676b]' : ''
             }`}
           >
             <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mr-3 text-lg font-semibold">
@@ -185,9 +185,13 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
             </div>
             <div className="flex-1">
               <div className="flex justify-between">
-                <h3 className="font-semibold">{customer.name}</h3>
+                <h3 className="font-semibold dark:text-white">{customer.name}</h3>
               </div>
-              <p className="text-sm text-gray-600 truncate">{customer.lastMessage}</p>
+              <p className="text-sm text-gray-600 dark:text-[#9ea6b3] truncate">
+  {customer.lastMessage && customer.lastMessage.length > 14
+    ? customer.lastMessage.slice(0, 14) + "..."
+    : customer.lastMessage}
+</p>
             </div>
             <div className="flex flex-col items-end">
               <div className="flex items-center">
@@ -196,7 +200,7 @@ const CustomerList: React.FC<CustomerListProps> = (props) => {
                 )}
                 {customer.pinned && <span className="text-sm text-gray-500 ml-1 mb-1">📌</span>}
               </div>
-              <span className="text-xs text-gray-500">{formatDateTime(customer.lastTime)}</span>
+              <span className="text-xs text-gray-500 dark:text-[#9ea6b3]">{formatDateTime(customer.lastTime)}</span>
             </div>
             <div className="relative">
               <button
