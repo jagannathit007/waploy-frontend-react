@@ -1,26 +1,140 @@
-// import { Message } from '../OtherPage/Chats';
+import React from 'react';
+import Swal from 'sweetalert2';
 
-const DocumentMessage = ({ msg, isMe }: { msg: any; isMe: boolean }) => {
-  const fileName = msg.content;
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  const isPdf = ext === 'pdf';
-  const bgClass = isMe ? 'bg-green-100 text-black' : 'bg-green-700 text-white';
-  const iconColor = isPdf ? 'text-red-500' : 'text-blue-500';
+interface DocumentMessageProps {
+  content: string;
+  time: string;
+  isMe: boolean;
+  status?: string;
+  fileName?: string;
+  fileSize?: string;
+  createdAt?: string;
+}
+
+const DocumentMessage: React.FC<DocumentMessageProps> = ({ 
+  content, 
+  time, 
+  isMe, 
+  status, 
+  fileName, 
+  fileSize,
+  createdAt
+}) => {
+  const Toast = Swal.mixin({
+    toast: true,
+    position: "bottom-end",
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+  });
+
+  const displayName = fileName || content;
+
+  const getFileTypeInfo = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase() || '';
+    switch (ext) {
+      case 'pdf':
+        return {
+          icon: '📄',
+          iconBg: 'bg-red-500',
+          iconText: 'PDF',
+          type: 'PDF'
+        };
+      case 'doc':
+      case 'docx':
+        return {
+          icon: '📝',
+          iconBg: 'bg-blue-500',
+          iconText: 'W',
+          type: 'DOCX'
+        };
+      case 'xls':
+      case 'xlsx':
+        return {
+          icon: '📊',
+          iconBg: 'bg-green-600',
+          iconText: 'X',
+          type: 'XLSX'
+        };
+      case 'ppt':
+      case 'pptx':
+        return {
+          icon: '📈',
+          iconBg: 'bg-orange-500',
+          iconText: 'P',
+          type: 'PPTX'
+        };
+      default:
+        return {
+          icon: '📄',
+          iconBg: 'bg-gray-500',
+          iconText: '?',
+          type: ext.toUpperCase()
+        };
+    }
+  };
+
+  const fileInfo = getFileTypeInfo(displayName);
+  
+  // Clean the filename by removing any upload/media prefixes and paths
+  const cleanFileName = displayName.replace(/^(uploads?[\\\/]media[\\\/]|uploads?[\\\/]|media[\\\/])/i, '');
+
+  const handleDocumentDownload = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_IMAGE_URL}${content}`);
+      if (!response.ok) {
+        throw new Error('Failed to download file');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = cleanFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      Toast.fire({ icon: "success", title: "File downloaded successfully" });
+    } catch (error) {
+      console.error('Download error:', error);
+      Toast.fire({ icon: "error", title: "Failed to download file" });
+    }
+  };
 
   return (
-    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
-      <div className={`max-w-xs rounded-lg ${bgClass} flex items-center p-2`}>
-        <svg className={`w-10 h-10 ${iconColor}`} fill="currentColor" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1"/>
-          <path d="M4.603 12.087a.8.8 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.7 7.7 0 0 1 1.482-.645 20 20 0 0 0 1.062-2.227 7.3 7.3 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.187-.012.395-.047.614-.084.51-.27 1.134-.52 1.794a10.1 10.1 0 0 0 .98-1.686 5.8 5.8 0 0 1 1.334-1.776 1.6 1.6 0 0 1 .95-.44c.19-.03.38-.007.48.085.297.18.407.538.3.934-.085.34-.358.65-.777.665-.417.016-.683-.201-.687-.5-.012-.282.124-.514.34-.558.216-.044.482.016.665.247c.214.266.543.533.85.75.31.213.636.396.963.54.306.145.619.258.94.34.324.083.649.128.94.09.38-.037.591-.244.65-.643.06-.399-.018-.89-.288-1.287-.272-.396-.683-.651-1.165-.813a9.4 9.4 0 0 0-1.983-.4c-.19-.113-.342-.185-.44-.252-.085-.066-.158-.158-.158-.265 0-.105.07-.194.16-.27.187-.176.425-.246.67-.215.245.03.47.085.68.136.459.115 1.31.196 1.45.083.14-.107.127-.344-.058-.52-.16-.143-.424-.122-.64-.1-.213.022-.417.158-.594.475-.176.317-.237.8-.277 1.23-.095.88-.53 1.817-1.42 1.982-.583.162-1.134-.344-1.105-.9.005-.096.033-.17.053-.248.09-.355.4-.672.89-.815.498-.145 1.011-.143 1.48.002.429.131.64.328.486.547-.158.22-.477.223-.95.097-.478-.124-.78-.374-.956-.718-.176-.345-.282-.776-.279-1.228.002-.482.198-.942.572-1.29.43-.4.967-.702 1.64-.633.5.05.96.284 1.281.645.324.36.47.857.365 1.34-.105.487-.393 1.029-.693 1.336-.299.307-.661.445-1.034.404-.372-.041-.767-.231-1.04-.569-.273-.338-.392-.806-.258-1.265.14-.482.587-.872 1.129-.999.543-.127 1.09-.038 1.536.285.445.323.665.834.468 1.315-.197.482-.652.903-1.202.984-.549.08-1.078-.096-1.45-.46-.373-.364-.527-.935-.341-1.439.21-.562.78-1.092 1.485-1.214.706-.122 1.406.1 1.867.55.46.45.659 1.06.506 1.63-.147.55-.55 1.044-1.061 1.27-.506.222-1.065.204-1.554-.04-.489-.244-.836-.708-.836-1.218 0-.488.263-.93.674-1.157a1.09 1.09 0 0 1 1.148-.1c.433.21.73.606.744 1.05.014.443-.245.862-.645 1.07-.4.21-.905.194-1.287-.037-.377-.228-.592-.647-.522-1.064.073-.43.363-.79.75-.93.386-.14.812-.085 1.173.134.363.22.592.58.58 1.002-.01.41-.24.78-.599.965-.36.186-.792.18-1.144-.016-.35-.195-.562-.559-.534-.93.03-.385.275-.726.612-.878.338-.152.73-.129 1.05.05.32.178.527.524.497.89-.028.35-.23.662-.523.82-.292.158-.643.15-.919-.02z" />
-        </svg>
-        <div className="ml-2">
-          <p className="font-semibold">{fileName}</p>
-          <p className="text-sm">{msg.meta?.pages || 1} page - {ext.toUpperCase()} - {msg.meta?.size || 'Unknown'}</p>
+    <div className="relative w-64">
+      <div 
+        className="flex items-center p-2 rounded-lg cursor-pointer hover:bg-opacity-80 transition-opacity"
+        onClick={handleDocumentDownload}
+      >
+        <div className={`w-12 h-12 ${fileInfo.iconBg} rounded-lg flex items-center justify-center mr-3 flex-shrink-0`}>
+          <span className="text-white font-bold text-sm">{fileInfo.iconText}</span>
         </div>
-        <svg className="w-6 h-6 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
+        <div className="flex-1 min-w-0">
+          <div className="text-white font-medium break-words text-sm">{cleanFileName}</div>
+          <div className="text-white text-opacity-70 text-[10px]">
+            {fileInfo.type}
+          </div>
+        </div>
+        <div className="ml-2 flex-shrink-0">
+          <svg className="w-5 h-5 text-white text-opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+      </div>
+      
+      {/* Time and Status */}
+      <div className={`absolute bottom-1 right-1 text-[10px] ${isMe ? 'text-white' : 'text-gray-300'}`}>
+        {createdAt
+          ? new Date(createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+          : time}
+        {isMe && (
+          <span className="ml-1">
+            {status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : '✓'}
+          </span>
+        )}
       </div>
     </div>
   );

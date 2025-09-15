@@ -1,13 +1,39 @@
-// import { Message } from '../OtherPage/Chats';
+import React from 'react';
 
-const TextMessage = ({ msg, isMe }: { msg: any; isMe: boolean }) => (
-  <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
-    <div className={`max-w-xs px-4 py-2 rounded-lg ${isMe ? 'bg-green-100 text-right' : 'bg-gray-100 text-left'}`}>
-      {msg.isForwarded && <span className="text-xs text-gray-500 block mb-1">Forwarded</span>}
-      <p>{msg.content}</p>
-      <span className="text-xs text-gray-500 ml-2">{msg.time}</span>
+interface TextMessageProps {
+  content: string;
+  time: string;
+  isMe: boolean;
+  status?: string;
+  createdAt?: string;
+}
+
+const TextMessage: React.FC<TextMessageProps> = ({ 
+  content, 
+  time, 
+  isMe, 
+  status,
+  createdAt
+}) => {
+  return (
+    <div className="relative">
+      <div className="text-white break-words whitespace-pre-wrap message-text">
+        {content}
+      </div>
+      <div className={`absolute bottom-1 right-1 text-[10px] ${isMe ? 'text-green-100' : 'text-gray-300'} flex items-end`}>
+        <span className="whitespace-nowrap">
+          {createdAt
+            ? new Date(createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+            : time}
+        </span>
+        {isMe && (
+          <span className="ml-1">
+            {status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : '✓'}
+          </span>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default TextMessage;

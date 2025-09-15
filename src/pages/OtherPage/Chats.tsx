@@ -2,11 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import CustomerList from './CustomerList';
-import AssignChat from './assignChat';
 import { sendWhatsAppMessage, sendWhatsAppMedia, getChats, searchChats } from '../../services/api/whatsappService';
 import { useAuth } from '../../context/AuthContext';
 import CustomerProfile from "./CustomerProfile";
 import SelectedCustomerHeader from "./SelectedCustomerHeader"; // Add this import
+import AudioMessage from '../medias/AudioMessage';
+import ImageMessage from '../medias/ImageMessage';
+import VideoMessage from '../medias/VideoMessage';
+import DocumentMessage from '../medias/DocumentMessage';
+import TextMessage from '../medias/TextMessage';
 
 interface Label {
   _id: string;
@@ -30,8 +34,8 @@ interface Customer {
 
 interface Message {
   _id?: string;
-  id?: string;
-  from: 'me' | 'them' | string;
+  id: string;
+  from: 'me' | 'them';
   to?: string;
   type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'contact';
   content: string;
@@ -124,7 +128,7 @@ const starredMessages: StarredMessage[] = [
 
 const Chats = () => {
   const { token, profile } = useAuth();
-  const [labels, setLabels] = useState<Label[]>([]);
+  const [labels] = useState<Label[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -156,6 +160,11 @@ const Chats = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false); // Track loading state for more data
   const [scrollReference, setScrollReference] = useState<{ messageId: string, offset: number } | null>(null); // Track scroll reference
   const [showMediaOptions, setShowMediaOptions] = useState(false); // Track media options visibility
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [showVoiceRecordingUI, setShowVoiceRecordingUI] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [recordingTimer, setRecordingTimer] = useState<number | null>(null);
 
   const messageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -440,6 +449,7 @@ const Chats = () => {
     }
   }, [messages, isLoadingMore, scrollReference]);
 
+
   // Handle scroll to load more messages with reference tracking
   const handleScroll = () => {
     if (!messageContainerRef.current || !selectedCustomer || isLoadingMore) return;
@@ -487,65 +497,121 @@ const Chats = () => {
       mediaType === 'video' ? 'video/*' :
         mediaType === 'audio' ? 'audio/*' :
           '.pdf,.doc,.docx,.txt,.xlsx,.xls';
+    
+    // Allow multiple selection for images
+    if (mediaType === 'image') {
+      input.multiple = true;
+    }
 
     input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
+      const files = (e.target as HTMLInputElement).files;
+      if (!files || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
         return;
       }
 
-      console.log('Selected file:', file.name, 'Type:', mediaType);
+      // Convert FileList to Array
+      const fileArray = Array.from(files);
+      
+      console.log('Selected files:', fileArray.map(f => f.name), 'Type:', mediaType);
 
       setIsSendingMessage(true);
 
-      // Create a temporary message to show in UI
-      const tempMessage: Message = {
-        id: Date.now().toString(),
-        from: profile._id,
-        type: mediaType,
-        content: file.name,
-        time: new Date().toLocaleTimeString(),
-      };
-
       try {
-        // Add temporary message to UI
-        setMessages(prev => [...prev, tempMessage]);
+        // Process multiple files for images, single file for others
+        if (mediaType === 'image' && fileArray.length > 1) {
+          // Handle multiple images
+          for (let i = 0; i < fileArray.length; i++) {
+            const file = fileArray[i];
+            
+            // Create a temporary message for each image
+            const tempMessage: Message = {
+              id: `${Date.now()}-${i}`,
+              from: 'me',
+              type: mediaType,
+              content: file.name,
+              time: new Date().toLocaleTimeString(),
+            };
 
-        // Send media through API
-        const response = await sendWhatsAppMedia(
-          profile.company._id,
-          selectedCustomer.phone,
-          file,
-          mediaType,
-          '', // caption
-          selectedCustomer.id,
-          profile._id,
-          false,
-          token
-        );
+            // Add temporary message to UI
+            setMessages(prev => [...prev, tempMessage]);
 
-        if (response.success) {
+            // Send each image
+            const response = await sendWhatsAppMedia(
+              profile.company._id,
+              selectedCustomer.phone,
+              file,
+              mediaType,
+              '', // caption
+              selectedCustomer.id,
+              profile._id,
+              false,
+              token
+            );
+
+            if (!response.success) {
+              // Remove temporary message on failure
+              setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+              console.error(`Failed to send image ${file.name}:`, response.message);
+            }
+          }
+
+          // Show success message for multiple images
           Toast.fire({
             icon: 'success',
-            title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} sent successfully!`
+            title: `${fileArray.length} images sent successfully!`
           });
 
-          // Reload messages to get the actual sent message
+          // Reload messages to get the actual sent messages
           await loadChatMessages(selectedCustomer.id, 1, true);
         } else {
-          // Remove temporary message on failure
-          setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+          // Handle single file (or first file if multiple selected for non-image types)
+          const file = fileArray[0];
+          
+          // Create a temporary message to show in UI
+          const tempMessage: Message = {
+            id: Date.now().toString(),
+            from: 'me',
+            type: mediaType,
+            content: file.name,
+            time: new Date().toLocaleTimeString(),
+          };
 
-          Toast.fire({
-            icon: 'error',
-            title: response.message || `Failed to send ${mediaType}`
-          });
+          // Add temporary message to UI
+          setMessages(prev => [...prev, tempMessage]);
+
+          // Send media through API
+          const response = await sendWhatsAppMedia(
+            profile.company._id,
+            selectedCustomer.phone,
+            file,
+            mediaType,
+            '', // caption
+            selectedCustomer.id,
+            profile._id,
+            false,
+            token
+          );
+
+          if (response.success) {
+            Toast.fire({
+              icon: 'success',
+              title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} sent successfully!`
+            });
+
+            // Reload messages to get the actual sent message
+            await loadChatMessages(selectedCustomer.id, 1, true);
+          } else {
+            // Remove temporary message on failure
+            setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+
+            Toast.fire({
+              icon: 'error',
+              title: response.message || `Failed to send ${mediaType}`
+            });
+          }
         }
       } catch (error) {
         console.error('Error sending media:', error);
-
-        // Remove temporary message on error
-        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
 
         Toast.fire({
           icon: 'error',
@@ -569,7 +635,7 @@ const Chats = () => {
       );
       if (response.data.status === 200 && response.data.data) {
         const customerData = response.data.data;
-        setSelectedCustomer({
+        const updatedCustomer = {
           id: customerData._id,
           name: customerData.name,
           phone: customerData.phone,
@@ -582,8 +648,15 @@ const Chats = () => {
           unread: customer.unread || 0,
           pinned: customer.pinned || false,
           isBlocked: customer.isBlocked || false,
-        });
-        setMessages(dummyChats[customer.id] || []);
+        };
+        setSelectedCustomer(updatedCustomer);
+        
+        // Reset pagination state for new customer
+        setPage(1);
+        setScrollReference(null);
+        
+        // Load chat messages for the selected customer
+        await loadChatMessages(customer.id, 1, true);
       } else {
         throw new Error('Failed to fetch customer details');
       }
@@ -592,7 +665,11 @@ const Chats = () => {
       Toast.fire({ icon: 'error', title: 'Failed to fetch customer details' });
       // Fallback to basic customer data
       setSelectedCustomer(customer);
-      setMessages(dummyChats[customer.id] || []);
+      // Reset pagination state for new customer
+      setPage(1);
+      setScrollReference(null);
+      // Still try to load chat messages even with fallback data
+      await loadChatMessages(customer.id, 1, true);
     }
   };
 
@@ -695,6 +772,136 @@ const Chats = () => {
     }
   };
 
+
+  const startAudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        chunks.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        sendAudioMessage(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+        setShowVoiceRecordingUI(false);
+        setRecordingDuration(0);
+        if (recordingTimer) {
+          clearInterval(recordingTimer);
+          setRecordingTimer(null);
+        }
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setShowVoiceRecordingUI(true);
+      setRecordingDuration(0);
+      
+      // Start timer for recording duration
+      const timer = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+      setRecordingTimer(timer as unknown as number);
+      
+      // Toast.fire({ icon: "info", title: "Recording started..." });
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      Toast.fire({ icon: "error", title: "Failed to start recording" });
+    }
+  };
+
+  const stopAudioRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+      setShowVoiceRecordingUI(false);
+      setRecordingDuration(0);
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+        setRecordingTimer(null);
+      }
+      Toast.fire({ icon: "success", title: "Recording stopped" });
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+      setShowVoiceRecordingUI(false);
+      setRecordingDuration(0);
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+        setRecordingTimer(null);
+      }
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+
+  const sendAudioMessage = async (audioBlob: Blob) => {
+    if (!selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
+      return;
+    }
+
+    setIsSendingMessage(true);
+
+    // Create a temporary message
+    const tempMessage: Message = {
+      id: Date.now().toString(),
+      from: 'me',
+      type: 'audio',
+      content: 'Recording...',
+      time: new Date().toLocaleTimeString(),
+    };
+
+    setMessages(prev => [...prev, tempMessage]);
+
+    try {
+
+      // Send audio through API
+      const response = await sendWhatsAppMedia(
+        profile.company._id,
+        selectedCustomer.phone,
+        audioBlob as any, // Convert Blob to File-like object
+        'audio',
+        '', // caption
+        selectedCustomer.id, // customerId
+        profile._id, // userId
+        false, // isPrivate
+        token
+      );
+
+      if (response.success) {
+        Toast.fire({ icon: "success", title: "Audio sent successfully" });
+        // Reload messages to get the actual sent message
+        await loadChatMessages(selectedCustomer.id, 1, true);
+      } else {
+        Toast.fire({ icon: "error", title: "Failed to send audio" });
+        // Remove temporary message on error
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      }
+    } catch (error) {
+      console.error('Error sending audio:', error);
+      Toast.fire({ icon: "error", title: "Failed to send audio" });
+      // Remove temporary message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) return;
@@ -704,7 +911,7 @@ const Chats = () => {
     try {
       const newMsg: Message = {
         id: Date.now().toString(),
-        from: profile?._id,
+        from: 'me',
         type: 'text',
         content: newMessage,
         time: new Date().toLocaleTimeString(),
@@ -759,27 +966,68 @@ const Chats = () => {
 
     switch (msg.type) {
       case 'image':
-        content = <img src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} alt="Image" className="max-w-xs rounded-lg" />;
+        content = (
+          <ImageMessage
+            content={messageContent}
+            time={msg.time}
+            isMe={isMe}
+            status={msg.status}
+            createdAt={msg.createdAt}
+          />
+        );
         break;
       case 'video':
-        content = <video src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} controls className="max-w-xs rounded-lg" />;
+        content = (
+          <VideoMessage
+            content={messageContent}
+            time={msg.time}
+            isMe={isMe}
+            status={msg.status}
+            createdAt={msg.createdAt}
+          />
+        );
         break;
       case 'audio':
-        content = <audio src={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} controls />;
+        content = (
+          <AudioMessage
+            content={messageContent}
+            time={msg.time}
+            isMe={isMe}
+            status={msg.status}
+            messageId={msg.id}
+            createdAt={msg.createdAt}
+          />
+        );
         break;
       case 'document':
-        content = <a href={`${import.meta.env.VITE_IMAGE_URL}${messageContent}`} className="text-blue-500" target="_blank" rel="noopener noreferrer">{messageContent}</a>;
+        content = (
+          <DocumentMessage
+            content={messageContent}
+            time={msg.time}
+            isMe={isMe}
+            status={msg.status}
+            createdAt={msg.createdAt}
+          />
+        );
         break;
       case 'contact':
         content = <div className="bg-gray-100 p-2 rounded">{messageContent}</div>;
         break;
       default:
-        content = <p className="text-white break-words whitespace-pre-wrap message-text">{messageContent}</p>;
+        content = (
+          <TextMessage
+            content={messageContent}
+            time={msg.time}
+            isMe={isMe}
+            status={msg.status}
+            createdAt={msg.createdAt}
+          />
+        );
     }
 
     return (
       <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`} data-message-id={msg._id || msg.id}>
-        <div className={`relative max-w-xs px-3 py-2 rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} overflow-wrap-anywhere`}>
+        <div className={`relative ${msg.type === 'image' || msg.type === 'video' ? 'max-w-xs p-1' : msg.type === 'document' ? 'max-w-sm p-1 overflow-hidden' : 'max-w-md px-3 py-2'} rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} ${msg.type === 'image' || msg.type === 'video' || msg.type === 'document' ? '' : 'overflow-wrap-anywhere'}`}>
           {isMe ? (
             <svg
               className="absolute top-0 right-[-5px] w-3 h-3 text-green-500 transform rotate-90"
@@ -802,18 +1050,6 @@ const Chats = () => {
 
           <div className="flex items-end justify-end">
             {content}
-            <div className={`flex items-center ml-1 ${isMe ? 'text-green-100' : 'text-gray-300'}`}>
-              <span className="text-[10px]">
-                {msg.createdAt
-                  ? new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                  : msg.time}
-              </span>
-              {isMe && (
-                <span className="ml-1 text-[10px]">
-                  {msg.status === 'read' ? '✓✓' : msg.status === 'delivered' ? '✓✓' : '✓'}
-                </span>
-              )}
-            </div>
           </div>
         </div>
       </div>
@@ -823,12 +1059,6 @@ const Chats = () => {
 const getMedia = (type: "image" | "video" | "audio" | "document") =>
     messages.filter((m) => m.type === type);
 
-  const filteredMessages = messages.filter(
-    (msg) =>
-      msg.type === "text" &&
-      chatSearchQuery &&
-      msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase())
-  );
 
   return (
     <div className="flex max-h-[calc(100vh-77px)] overflow-hidden bg-gray-100 dark:bg-gray-900">
@@ -856,7 +1086,11 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
               setShowSearchModal={setShowSearchModal}
               handleAssignmentComplete={handleAssignmentComplete}
             />
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+            <div 
+              ref={messageContainerRef}
+              className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900"
+              onScroll={handleScroll}
+            >
               {messages.map(renderMessage)}
             </div>
 
@@ -875,47 +1109,47 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
 
                 {/* Media Options Dropdown */}
                 {showMediaOptions && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 z-10">
-                    <div className="flex flex-col space-y-1">
+                  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 z-10 w-48">
+                    <div className="flex flex-col space-y-2">
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('image')}
-                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        Image
+                        <span className="font-medium">Image</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('video')}
-                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        Video
+                        <span className="font-medium">Video</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('audio')}
-                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 mr-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
-                        Audio
+                        <span className="font-medium">Audio File</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('document')}
-                        className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Document
+                        <span className="font-medium">Document</span>
                       </button>
                     </div>
                   </div>
@@ -930,27 +1164,128 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                 className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white"
                 disabled={isSendingMessage}
               />
-              <button
-                type="submit"
-                className={`px-4 py-2 text-white rounded-r-lg flex items-center ${isSendingMessage
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-emerald-600 hover:bg-emerald-700'
+              
+              {/* Show microphone by default, send button only when text is typed */}
+              {newMessage.trim() ? (
+                <button
+                  type="submit"
+                  className={`px-4 py-2 text-white rounded-r-lg flex items-center ${isSendingMessage
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                  disabled={isSendingMessage || !newMessage.trim()}
+                >
+                  {isSendingMessage ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      Send
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={isRecording ? stopAudioRecording : startAudioRecording}
+                  className={`p-2 rounded-r-lg ${isRecording 
+                    ? 'text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-900/20' 
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
-                disabled={isSendingMessage || !newMessage.trim()}
-              >
-                {isSendingMessage ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  disabled={isSendingMessage}
+                >
+                  {isRecording ? (
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 6h12v12H6z"/>
                     </svg>
-                    Sending...
-                  </>
-                ) : (
-                  'Send'
-                )}
-              </button>
+                  ) : (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </form>
+
+            {/* Voice Recording UI */}
+            {showVoiceRecordingUI && (
+              <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-800">
+                <div className="flex items-center justify-between bg-gray-200 dark:bg-gray-700 rounded-lg p-3">
+                  {/* Left side - Delete button and recording indicator */}
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={cancelRecording}
+                      className="p-2 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                    
+                    {/* Recording indicator */}
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    
+                    {/* Duration */}
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {formatDuration(recordingDuration)}
+                    </span>
+                  </div>
+
+                  {/* Middle - Waveform visualization */}
+                  <div className="flex-1 flex justify-center">
+                    <div className="flex items-center space-x-1">
+                      {[...Array(20)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-1 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse"
+                          style={{
+                            height: `${Math.random() * 20 + 8}px`,
+                            animationDelay: `${i * 0.1}s`
+                          }}
+                        ></div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right side - Controls */}
+                  <div className="flex items-center space-x-2">
+                    {/* Pause button */}
+                    <button
+                      onClick={isRecording ? stopAudioRecording : startAudioRecording}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      {isRecording ? (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Send button */}
+                    <button
+                      onClick={stopAudioRecording}
+                      className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
