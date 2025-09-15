@@ -18,6 +18,7 @@ import ChatAssignedToast from "./components/common/ChatAssignedToast";
 import TaskAssignedToast from "./components/common/TaskAssignedToast";
 import Teams from "./pages/OtherPage/teams";
 import Lables from "./pages/OtherPage/MasterLable";
+import SubscriptionManagement from "./pages/OtherPage/SubscriptionManagement";
 
 export default function App() {
   return (
@@ -54,7 +55,9 @@ function AppContent() {
               <Route index path="/customers" element={<Customers />} />
               <Route index path="/chats" element={<Chats />} />
               <Route index path="/lables" element={<Lables />} />
-              <Route index path="/subscription" element={<Subscription />} /> 
+              <Route index path="/subscription" element={<Subscription />} />
+              <Route index path="/subscription-management" element={<SubscriptionManagement />} /> 
+
 
               {/* Others Page */}
               <Route path="/profile" element={<UserProfiles />} />

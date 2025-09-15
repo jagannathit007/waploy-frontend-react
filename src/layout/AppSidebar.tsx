@@ -59,6 +59,12 @@ const navItems: NavItem[] = [
     path: "/subscription",
   },
   {
+    icon: <CreditCard />,
+    name: "Subscription Management",
+    path: "/subscription-management",
+  },
+
+  {
     icon: <HorizontaLDots />,
     name: "Lables",
     path: "/lables",

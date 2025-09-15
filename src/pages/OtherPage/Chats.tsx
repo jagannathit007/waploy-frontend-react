@@ -284,7 +284,7 @@ const Chats = () => {
           }
         );
         if (response.data.status === 200 && response.data.data) {
-          // setLabels(response.data.data.docs || []);
+          setLabels(response.data.data.docs || []);
         }
       } catch (error) {
         console.error("Error fetching labels:", error);
@@ -295,13 +295,13 @@ const Chats = () => {
   }, []);
 
   // Update selectedLabels when selectedCustomer changes
-  // useEffect(() => {
-  //   if (selectedCustomer?.labels) {
-  //     setSelectedLabels(selectedCustomer.labels.map((label) => label._id));
-  //   } else {
-  //     setSelectedLabels([]);
-  //   }
-  // }, [selectedCustomer]);
+  useEffect(() => {
+    if (selectedCustomer?.labels) {
+      setSelectedLabels(selectedCustomer.labels.map((label) => label._id));
+    } else {
+      setSelectedLabels([]);
+    }
+  }, [selectedCustomer]);
 
   const handleAssignLabels = async () => {
     if (!selectedCustomer) return;
