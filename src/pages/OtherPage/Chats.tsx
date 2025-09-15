@@ -129,7 +129,7 @@ const starredMessages: StarredMessage[] = [
 
 const Chats = () => {
   const { token, profile } = useAuth();
-  const [labels] = useState<Label[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
