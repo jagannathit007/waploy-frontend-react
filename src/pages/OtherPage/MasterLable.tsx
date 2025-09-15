@@ -219,10 +219,13 @@ const MasterLabel: React.FC = () => {
         });
         fetchLabels();
       } else {
-        throw new Error("Failed to toggle label status");
+        Toast.fire({
+        icon: "error",
+        title: response.message || "Failed to toggle label status",
+      });
       }
     } catch (error: any) {
-      console.error("Toggle label status error:", error);
+      // console.error("Toggle label status error:", error);
       Toast.fire({
         icon: "error",
         title: error.message || "Failed to toggle label status",
