@@ -22,7 +22,7 @@ interface SocketProviderProps {
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { token, profile } = useAuth();
+  const { profile } = useAuth();
 
   // Get backend URL from environment variables
   const BACKEND_URL = import.meta.env.VITE_API_BASE?.replace('/api/web', '') || 'http://localhost:3090';

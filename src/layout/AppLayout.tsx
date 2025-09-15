@@ -3,8 +3,12 @@ import { Outlet } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import { useSocketEvents } from "../hooks/useSocketEvents";
 
 const LayoutContent: React.FC = () => {
+  // Initialize socket events for customer added notifications - call this first
+  useSocketEvents();
+  
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   return (

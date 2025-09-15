@@ -12,6 +12,8 @@ import Chats from "./pages/OtherPage/Chats";
 import Subscription from "./pages/OtherPage/Subscription";
 import { AuthProvider, ProtectedRoute, RequireAuth } from "./context/AuthContext";
 import { SocketProvider } from "./context/SocketContext";
+import { ToastProvider, useToast } from "./context/ToastContext";
+import CustomerAddedToast from "./components/common/CustomerAddedToast";
 import Teams from "./pages/OtherPage/teams";
 import Lables from "./pages/OtherPage/MasterLable";
 
@@ -21,8 +23,21 @@ export default function App() {
       <HashRouter>
         <AuthProvider>  {/* 👈 Moved inside Router */}
           <SocketProvider>  {/* 👈 Socket provider inside AuthProvider */}
-            <ScrollToTop />
-          <Routes>
+            <ToastProvider>  {/* 👈 Toast provider inside SocketProvider */}
+              <ScrollToTop />
+              <AppContent />
+            </ToastProvider>
+          </SocketProvider>
+        </AuthProvider>
+      </HashRouter>
+    </>
+  );
+}
+
+function AppContent() {
+  return (
+    <>
+      <Routes>
             {/* Protected Dashboard Layout */}
             <Route
               element={
@@ -64,9 +79,23 @@ export default function App() {
             {/* Fallback Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          </SocketProvider>
-        </AuthProvider>
-      </HashRouter>
-    </>
-  );
-}
+          <ToastRenderer />
+        </>
+      );
+    }
+    
+    function ToastRenderer() {
+      const { customerAddedToast, hideCustomerAddedToast } = useToast();
+      
+      return (
+        <>
+          {customerAddedToast.isVisible && customerAddedToast.data && (
+            <CustomerAddedToast
+              isVisible={customerAddedToast.isVisible}
+              onClose={hideCustomerAddedToast}
+              customerData={customerAddedToast.data}
+            />
+          )}
+        </>
+      );
+    }

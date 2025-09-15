@@ -12,7 +12,6 @@ import ImageMessage from '../medias/ImageMessage';
 import VideoMessage from '../medias/VideoMessage';
 import DocumentMessage from '../medias/DocumentMessage';
 import TextMessage from '../medias/TextMessage';
-import SocketDebugPanel from '../../components/common/SocketDebugPanel';
 
 interface Label {
   _id: string;
@@ -257,6 +256,10 @@ const Chats = () => {
     onPrivateStatusChange: (status) => {
       console.log('🔒 Private status changed in chat:', status);
       // Handle privacy status changes if needed
+    },
+    onCustomerAdded: (customer) => {
+      console.log('👤 Customer added event received in Chats:', customer);
+      // Toast is handled globally, no need to show it here
     }
   });
 
@@ -1720,8 +1723,6 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
         </div>
       )}
       
-      {/* Socket Debug Panel */}
-      <SocketDebugPanel />
     </div>
   );
 };
