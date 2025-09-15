@@ -14,6 +14,8 @@ import { AuthProvider, ProtectedRoute, RequireAuth } from "./context/AuthContext
 import { SocketProvider } from "./context/SocketContext";
 import { ToastProvider, useToast } from "./context/ToastContext";
 import CustomerAddedToast from "./components/common/CustomerAddedToast";
+import ChatAssignedToast from "./components/common/ChatAssignedToast";
+import TaskAssignedToast from "./components/common/TaskAssignedToast";
 import Teams from "./pages/OtherPage/teams";
 import Lables from "./pages/OtherPage/MasterLable";
 
@@ -85,7 +87,7 @@ function AppContent() {
     }
     
     function ToastRenderer() {
-      const { customerAddedToast, hideCustomerAddedToast } = useToast();
+      const { customerAddedToast, hideCustomerAddedToast, chatAssignedToast, hideChatAssignedToast, taskAssignedToast, hideTaskAssignedToast } = useToast();
       
       return (
         <>
@@ -94,6 +96,20 @@ function AppContent() {
               isVisible={customerAddedToast.isVisible}
               onClose={hideCustomerAddedToast}
               customerData={customerAddedToast.data}
+            />
+          )}
+          {chatAssignedToast.isVisible && chatAssignedToast.data && (
+            <ChatAssignedToast
+              isVisible={chatAssignedToast.isVisible}
+              onClose={hideChatAssignedToast}
+              assignmentData={chatAssignedToast.data}
+            />
+          )}
+          {taskAssignedToast.isVisible && taskAssignedToast.data && (
+            <TaskAssignedToast
+              isVisible={taskAssignedToast.isVisible}
+              onClose={hideTaskAssignedToast}
+              assignmentData={taskAssignedToast.data}
             />
           )}
         </>
