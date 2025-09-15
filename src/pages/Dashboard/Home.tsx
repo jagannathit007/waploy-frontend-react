@@ -1,5 +1,6 @@
 import EcommerceMetrics from "../../components/ecommerce/EcommerceMetrics";
 import PageMeta from "../../components/common/PageMeta";
+import SocketDemo from "../../components/common/SocketDemo";
 
 export default function Home() {
   return (
@@ -12,8 +13,9 @@ export default function Home() {
         <div className="col-span-12 space-y-6 xl:col-span-7">
         </div>
       </div>
-      <div className="p-6">
+      <div className="p-6 space-y-6">
           <EcommerceMetrics />
+          <SocketDemo />
       </div>
     </>
   );

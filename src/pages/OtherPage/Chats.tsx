@@ -4,6 +4,7 @@ import axios from 'axios';
 import CustomerList from './CustomerList';
 import { sendWhatsAppMessage, sendWhatsAppMedia, getChats, searchChats } from '../../services/api/whatsappService';
 import { useAuth } from '../../context/AuthContext';
+import { useSocketEvents } from '../../hooks/useSocketEvents';
 import CustomerProfile from "./CustomerProfile";
 import SelectedCustomerHeader from "./SelectedCustomerHeader"; // Add this import
 import AudioMessage from '../medias/AudioMessage';
@@ -11,6 +12,7 @@ import ImageMessage from '../medias/ImageMessage';
 import VideoMessage from '../medias/VideoMessage';
 import DocumentMessage from '../medias/DocumentMessage';
 import TextMessage from '../medias/TextMessage';
+import SocketDebugPanel from '../../components/common/SocketDebugPanel';
 
 interface Label {
   _id: string;
@@ -165,8 +167,98 @@ const Chats = () => {
   const [showVoiceRecordingUI, setShowVoiceRecordingUI] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [recordingTimer, setRecordingTimer] = useState<number | null>(null);
+  const [refreshTimeout, setRefreshTimeout] = useState<number | null>(null);
 
   const messageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Debounced refresh function to avoid multiple rapid API calls
+  const debouncedRefreshChat = (customerId: string) => {
+    if (refreshTimeout) {
+      clearTimeout(refreshTimeout);
+    }
+    
+    const timeout = setTimeout(() => {
+      console.log('🔄 Executing debounced chat refresh...');
+      loadChatMessages(customerId, 1, true);
+      setRefresh(prev => prev + 1);
+    }, 500); // 500ms delay
+    
+    setRefreshTimeout(timeout);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+    };
+  }, [refreshTimeout]);
+
+  // Socket functionality for real-time messaging
+  const { socket, isConnected, sendToCompany } = useSocketEvents({
+    onCompanyMessage: (message) => {
+      console.log('📨 Received real-time message in chat:', message);
+      
+      // Handle incoming messages - refresh chat instead of parsing content
+      if (message && typeof message === 'object') {
+        // Handle different message formats from backend
+        if (message.type === 'incomming-message' || message.type === 'incoming-message') {
+          console.log('🔄 Incoming message detected, refreshing chat...');
+          
+          // Extract phone number to check if it matches selected customer
+          const phoneMatch = message.content?.match(/(\d{10,})/);
+          const phoneNumber = phoneMatch ? phoneMatch[1] : null;
+          
+          if (phoneNumber && selectedCustomer) {
+            // Normalize phone numbers for comparison
+            const normalizePhone = (phone: string) => {
+              return phone.replace(/[\s\-\+\(\)]/g, '').replace(/^91/, '');
+            };
+            
+            const normalizedIncomingPhone = normalizePhone(phoneNumber);
+            const normalizedSelectedPhone = normalizePhone(selectedCustomer.phone);
+            
+            console.log('📞 Checking phone match:', {
+              incoming: normalizedIncomingPhone,
+              selected: normalizedSelectedPhone
+            });
+            
+            // If phone numbers match, refresh the chat
+            if (normalizedSelectedPhone.includes(normalizedIncomingPhone) || 
+                normalizedIncomingPhone.includes(normalizedSelectedPhone)) {
+              console.log('✅ Phone match found, scheduling chat refresh...');
+              
+              // Use debounced refresh to avoid multiple rapid API calls
+              debouncedRefreshChat(selectedCustomer.id);
+              
+              console.log('✅ Chat refresh scheduled');
+            } else {
+              console.log('❌ Phone does not match selected customer');
+            }
+          } else {
+            console.log('❌ No phone number found or no customer selected');
+          }
+        } else if (message.customerId) {
+          // Handle messages with customerId field
+          if (selectedCustomer && message.customerId === selectedCustomer.id) {
+            console.log('🔄 Customer-specific message detected, scheduling chat refresh...');
+            debouncedRefreshChat(selectedCustomer.id);
+          }
+        } else {
+          console.log('📨 Received other type of company message:', message);
+        }
+      }
+    },
+    onGlobalMessage: (message) => {
+      console.log('📨 Received global message in chat:', message);
+      // Handle global messages if needed
+    },
+    onPrivateStatusChange: (status) => {
+      console.log('🔒 Private status changed in chat:', status);
+      // Handle privacy status changes if needed
+    }
+  });
 
   const Toast = Swal.mixin({
     toast: true,
@@ -430,6 +522,16 @@ const Chats = () => {
       messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
     }
   }, [messages, isLoadingMore, scrollReference]);
+
+  // Handle socket connection status and customer selection
+  useEffect(() => {
+    if (selectedCustomer && isConnected) {
+      console.log(`🔌 Socket connected for customer: ${selectedCustomer.name} (${selectedCustomer.id})`);
+      console.log(`📡 Listening for real-time messages in company room: ${profile?.company?._id}`);
+    } else if (selectedCustomer && !isConnected) {
+      console.log(`❌ Socket disconnected - real-time messages unavailable for: ${selectedCustomer.name}`);
+    }
+  }, [selectedCustomer, isConnected, profile?.company?._id]);
 
 
   // Handle scroll to load more messages with reference tracking
@@ -886,17 +988,41 @@ const Chats = () => {
 
     setIsSendingMessage(true);
 
-    try {
-      const newMsg: Message = {
-        id: Date.now().toString(),
-        from: 'me',
-        type: 'text',
-        content: newMessage,
-        time: new Date().toLocaleTimeString(),
-      };
+    const newMsg: Message = {
+      id: Date.now().toString(),
+      from: 'me',
+      type: 'text',
+      content: newMessage,
+      time: new Date().toLocaleTimeString(),
+    };
 
+    try {
+
+      // Add message to UI immediately for better UX
       setMessages([...messages, newMsg]);
       setCustomers(customers.map((c) => (c.id === selectedCustomer?.id ? { ...c, lastMessage: newMessage, lastTime: newMsg.time } : c)));
+
+      // Send message via socket for real-time communication
+      if (isConnected && socket && profile?.company?._id) {
+        const socketMessage = {
+          type: 'chat_message',
+          customerId: selectedCustomer.id,
+          customerName: selectedCustomer.name,
+          customerPhone: selectedCustomer.phone,
+          message: {
+            id: newMsg.id,
+            content: newMessage,
+            type: 'text',
+            from: profile._id,
+            fromName: profile?.profile?.firstName || 'User',
+            timestamp: new Date().toISOString(),
+            status: 'sending'
+          }
+        };
+        
+        sendToCompany(profile.company._id, socketMessage);
+        console.log('📤 Sent message via socket:', socketMessage);
+      }
 
       const phoneNumber = selectedCustomer.phone;
 
@@ -911,10 +1037,28 @@ const Chats = () => {
       );
 
       if (response.success) {
+        // Update message status to sent
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === newMsg.id 
+              ? { ...msg, status: 'sent' }
+              : msg
+          )
+        );
+        
         if (selectedCustomer) {
           await loadChatMessages(selectedCustomer.id, 1, true);
         }
       } else {
+        // Update message status to failed
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === newMsg.id 
+              ? { ...msg, status: 'failed' }
+              : msg
+          )
+        );
+        
         Toast.fire({
           icon: 'error',
           title: response.message || 'Failed to send message',
@@ -924,6 +1068,16 @@ const Chats = () => {
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      // Update message status to failed
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === newMsg.id 
+            ? { ...msg, status: 'failed' }
+            : msg
+        )
+      );
+      
       Toast.fire({
         icon: 'error',
         title: 'Failed to send message. Please try again.',
@@ -1565,6 +1719,9 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
           </div>
         </div>
       )}
+      
+      {/* Socket Debug Panel */}
+      <SocketDebugPanel />
     </div>
   );
 };

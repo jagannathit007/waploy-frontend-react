@@ -11,6 +11,7 @@ import Customers from "./pages/OtherPage/Customers";
 import Chats from "./pages/OtherPage/Chats";
 import Subscription from "./pages/OtherPage/Subscription";
 import { AuthProvider, ProtectedRoute, RequireAuth } from "./context/AuthContext";
+import { SocketProvider } from "./context/SocketContext";
 import Teams from "./pages/OtherPage/teams";
 import Lables from "./pages/OtherPage/MasterLable";
 
@@ -19,7 +20,8 @@ export default function App() {
     <>
       <HashRouter>
         <AuthProvider>  {/* 👈 Moved inside Router */}
-          <ScrollToTop />
+          <SocketProvider>  {/* 👈 Socket provider inside AuthProvider */}
+            <ScrollToTop />
           <Routes>
             {/* Protected Dashboard Layout */}
             <Route
@@ -62,6 +64,7 @@ export default function App() {
             {/* Fallback Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </SocketProvider>
         </AuthProvider>
       </HashRouter>
     </>
