@@ -191,13 +191,13 @@ const Chats = () => {
   }, []);
 
   // Update selectedLabels when selectedCustomer changes
-  // useEffect(() => {
-  //   if (selectedCustomer?.labels) {
-  //     setSelectedLabels(selectedCustomer.labels.map((label) => label._id));
-  //   } else {
-  //     setSelectedLabels([]);
-  //   }
-  // }, [selectedCustomer]);
+  useEffect(() => {
+    if (selectedCustomer?.labels) {
+      setSelectedLabels(selectedCustomer.labels.map((label) => label._id));
+    } else {
+      setSelectedLabels([]);
+    }
+  }, [selectedCustomer]);
 
   const handleAssignLabels = async () => {
     if (!selectedCustomer) return;
