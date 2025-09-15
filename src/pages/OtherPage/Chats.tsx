@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import axios from "axios";
 import CustomerList from "./CustomerList";
-import AssignChat from "./assignChat";
+// import AssignChat from "./assignChat";
 import CustomerProfile from "./CustomerProfile";
-import SelectedCustomerHeader from "./SelectedCustomerHeader"; // Add this import
+import SelectedCustomerHeader from "./SelectedCustomerHeader"; 
 
 interface Label {
   _id: string;
