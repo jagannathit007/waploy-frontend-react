@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -33,17 +33,68 @@ interface ProfileData {
   };
 }
 
+interface DashboardCounts {
+  totalMessages: number;
+  totalImages: number;
+  totalVideos: number;
+  totalAudios: number;
+  totalText: number;
+}
+
+interface CountsResponse {
+  success: boolean;
+  message?: string;
+  data?: DashboardCounts;
+}
+
 export default function Dashboard() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // Changed to false since we don't fetch QR code on load
+  const [isLoading, setIsLoading] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [counts, setCounts] = useState<DashboardCounts>({
+    totalMessages: 0,
+    totalImages: 0,
+    totalVideos: 0,
+    totalAudios: 0,
+    totalText: 0,
+  });
+  const [countsLoading, setCountsLoading] = useState(true);
+  const [countsError, setCountsError] = useState<string | null>(null);
 
   // Get companyId from local storage
   const profile = JSON.parse(localStorage.getItem("profile") || "{}") as ProfileData;
   const companyId = profile.company?._id || "YOUR_DEFAULT_COMPANY_ID";
   const API_BASE_URL = import.meta.env.VITE_API_BASE || "http://localhost:3090/api/web";
+
+  // Fetch dashboard counts
+  const fetchCounts = async () => {
+    if (!companyId || companyId === "YOUR_DEFAULT_COMPANY_ID") {
+      setCountsError("No company ID found in profile data");
+      setCountsLoading(false);
+      return;
+    }
+
+    try {
+      setCountsLoading(true);
+      const response = await axios.post<CountsResponse>(
+        `${API_BASE_URL}/whatsapp/${companyId}/counts`
+      );
+
+      if (response.data.success && response.data.data) {
+        setCounts(response.data.data);
+        setCountsError(null);
+      } else {
+        setCountsError(response.data.message || "Failed to fetch dashboard counts");
+      }
+    } catch (err) {
+      setCountsError("Error fetching dashboard counts. Please try again later.");
+      console.error(err);
+    } finally {
+      setCountsLoading(false);
+    }
+  };
 
   // Fetch QR code
   const fetchQRCode = async () => {
@@ -89,7 +140,6 @@ export default function Dashboard() {
       );
 
       if (response.data.success) {
-        // Call fetchQRCode only if connectCompany is successful
         await fetchQRCode();
       } else {
         setError(response.data.message || "Failed to connect to WhatsApp");
@@ -112,11 +162,11 @@ export default function Dashboard() {
     try {
       setIsDisconnecting(true);
       const response = await axios.post<{ success: boolean; message?: string }>(
-        `${API_BASE_URL}/whatsapp/${companyId}/disconnect` // Fixed URL
+        `${API_BASE_URL}/whatsapp/${companyId}/disconnect`
       );
 
       if (response.data.success) {
-        setQrCode(null); // Clear QR code on successful disconnection
+        setQrCode(null);
         setError(null);
       } else {
         setError(response.data.message || "Failed to disconnect from WhatsApp");
@@ -129,6 +179,10 @@ export default function Dashboard() {
     }
   };
 
+  // Fetch counts on component mount
+  useEffect(() => {
+    fetchCounts();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -147,9 +201,15 @@ export default function Dashboard() {
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     Total Messages
                   </span>
-                  <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-                    12,456
-                  </h4>
+                  {countsLoading ? (
+                    <p className="mt-2 text-gray-500">Loading...</p>
+                  ) : countsError ? (
+                    <p className="mt-2 text-red-500 text-sm">{countsError}</p>
+                  ) : (
+                    <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+                      {counts.totalMessages.toLocaleString()}
+                    </h4>
+                  )}
                 </div>
                 <Badge color="success">
                   <ArrowUpIcon />
@@ -168,9 +228,15 @@ export default function Dashboard() {
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     Total Videos
                   </span>
-                  <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-                    1,239
-                  </h4>
+                  {countsLoading ? (
+                    <p className="mt-2 text-gray-500">Loading...</p>
+                  ) : countsError ? (
+                    <p className="mt-2 text-red-500 text-sm">{countsError}</p>
+                  ) : (
+                    <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+                      {counts.totalVideos.toLocaleString()}
+                    </h4>
+                  )}
                 </div>
                 <Badge color="error">
                   <ArrowDownIcon />
@@ -189,9 +255,15 @@ export default function Dashboard() {
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     Total Images
                   </span>
-                  <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-                    4,872
-                  </h4>
+                  {countsLoading ? (
+                    <p className="mt-2 text-gray-500">Loading...</p>
+                  ) : countsError ? (
+                    <p className="mt-2 text-red-500 text-sm">{countsError}</p>
+                  ) : (
+                    <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+                      {counts.totalImages.toLocaleString()}
+                    </h4>
+                  )}
                 </div>
                 <Badge color="success">
                   <ArrowUpIcon />
@@ -200,7 +272,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Metric Item: Validity */}
+            {/* Metric Item: Active Subscriptions */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 hover:shadow-lg transition-shadow duration-200">
               <div className="flex items-center justify-center w-12 h-12 bg-orange-50 rounded-xl dark:bg-orange-900/20">
                 <Calendar className="text-orange-600 size-6 dark:text-orange-400" />
@@ -210,9 +282,15 @@ export default function Dashboard() {
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     Active Subscriptions
                   </span>
-                  <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-                    745
-                  </h4>
+                  {countsLoading ? (
+                    <p className="mt-2 text-gray-500">Loading...</p>
+                  ) : countsError ? (
+                    <p className="mt-2 text-red-500 text-sm">{countsError}</p>
+                  ) : (
+                    <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+                      745
+                    </h4>
+                  )}
                 </div>
                 <Badge color="error">
                   <ArrowDownIcon />

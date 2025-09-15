@@ -40,7 +40,7 @@ const SelectedCustomerHeader: React.FC<SelectedCustomerHeaderProps> = ({
           {getInitials(selectedCustomer.name)}
         </div>
         <div>
-          <h3 className="font-semibold">{selectedCustomer.name}</h3>
+          <h3 className="font-semibold dark:text-white">{selectedCustomer.name}</h3>
           <p className="text-sm text-gray-600">{selectedCustomer.phone}</p>
         </div>
       </div>
