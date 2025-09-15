@@ -130,9 +130,9 @@ const starredMessages: StarredMessage[] = [
 const Chats = () => {
   const { token, profile } = useAuth();
   const [labels, setLabels] = useState<Label[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -297,7 +297,7 @@ const Chats = () => {
   // Update selectedLabels when selectedCustomer changes
   useEffect(() => {
     if (selectedCustomer?.labels) {
-      setSelectedLabels(selectedCustomer.labels.map((label) => label._id));
+      setSelectedLabels(selectedCustomer.labels.map((label:any) => label._id));
     } else {
       setSelectedLabels([]);
     }
