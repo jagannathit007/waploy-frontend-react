@@ -57,7 +57,7 @@ const Subscription = () => {
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNoSubscriptionPopup, setShowNoSubscriptionPopup] = useState(false);
-
+  console.log(showNoSubscriptionPopup);
   const Toast = Swal.mixin({
     toast: true,
     position: 'bottom-end',

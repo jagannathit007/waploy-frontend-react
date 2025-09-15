@@ -53,17 +53,17 @@ export default function UserDropdown() {
       >
         <span className="mr-3 flex items-center justify-center rounded-full h-11 w-11 bg-emerald-600 text-white font-semibold ">
           {profile
-            ? profile.profile.lastName
-              ? `${profile.profile.firstName[0]}${profile.profile.lastName[0]}`.toUpperCase()
-              : profile.profile.firstName[0].toUpperCase()
+            ? profile?.profile?.lastName
+              ? `${profile?.profile?.firstName[0]}${profile?.profile?.lastName[0]}`.toUpperCase()
+              : profile?.profile?.firstName[0].toUpperCase()
             : "U"}
         </span>
 
         <span className="block mr-1 font-medium text-theme-md">
           {profile
-            ? `${profile.profile.firstName
+            ? `${profile?.profile?.firstName
                 .charAt(0)
-                .toUpperCase()}${profile.profile.firstName.slice(1)}`
+                .toUpperCase()}${profile?.profile?.firstName.slice(1)}`
             : "User"}
           {/* <p className="text-theme-xs font-normal ">
             {profile.email&& profile?.email.length > 10 ? profile.email.substring(0, 10) + "..." : profile ? profile.email: ""}
@@ -99,7 +99,7 @@ export default function UserDropdown() {
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
             {profile
-              ? `${profile.profile.firstName} ${profile.profile.lastName}`
+              ? `${profile?.profile?.firstName} ${profile?.profile?.lastName}`
               : "User"}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">

@@ -17,7 +17,7 @@ const DocumentMessage: React.FC<DocumentMessageProps> = ({
   isMe, 
   status, 
   fileName, 
-  fileSize,
+  // fileSize,
   createdAt
 }) => {
   const Toast = Swal.mixin({

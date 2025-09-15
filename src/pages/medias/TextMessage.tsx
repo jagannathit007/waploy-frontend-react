@@ -20,7 +20,7 @@ const TextMessage: React.FC<TextMessageProps> = ({
       <div className="text-white break-words whitespace-pre-wrap message-text">
         {content}
       </div>
-      <div className={`absolute bottom-1 right-1 text-[10px] ${isMe ? 'text-green-100' : 'text-gray-300'} flex items-end`}>
+      <div className={` bottom-1 right-1 text-[10px] ${isMe ? 'text-green-100' : 'text-gray-300'} flex items-end`}>
         <span className="whitespace-nowrap">
           {createdAt
             ? new Date(createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })

@@ -5,7 +5,7 @@ import { apiCall } from '../services/api/auth'; // Import apiCall from your auth
 interface UserProfile {
   _id?: string;
   email: string;
-  profile: {
+  profile?: {
     firstName: string;
     lastName: string;
     phone: string;

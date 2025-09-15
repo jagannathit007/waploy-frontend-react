@@ -47,9 +47,9 @@ const UserProfiles = () => {
   useEffect(() => {
     if (profile) {
       setUserForm({
-        firstName: profile.profile.firstName || '',
-        lastName: profile.profile.lastName || '',
-        phone: profile.profile.phone || '',
+        firstName: profile?.profile?.firstName || '',
+        lastName: profile?.profile?.lastName || '',
+        phone: profile?.profile?.phone || '',
       });
       setCompanyForm({
         name: profile.company.name || '',
@@ -253,11 +253,11 @@ const togglePasswordVisibility = (field: PasswordField) => {
           <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-8">
             <div className="flex items-center space-x-4">
               <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-white text-2xl font-semibold backdrop-blur-sm">
-                {getInitials(profile.profile.firstName, profile.profile.lastName)}
+                {getInitials(profile?.profile?.firstName!, profile?.profile?.lastName!)}
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">
-                  {profile.profile.firstName} {profile.profile.lastName}
+                  {profile?.profile?.firstName} {profile?.profile?.lastName}
                 </h1>
                 <p className="text-emerald-100">{profile.email}</p>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white mt-2">
@@ -297,11 +297,11 @@ const togglePasswordVisibility = (field: PasswordField) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400">First Name</label>
-                  <p className="text-gray-900 dark:text-white font-medium">{profile.profile.firstName}</p>
+                  <p className="text-gray-900 dark:text-white font-medium">{profile?.profile?.firstName}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Last Name</label>
-                  <p className="text-gray-900 dark:text-white font-medium">{profile.profile.lastName}</p>
+                  <p className="text-gray-900 dark:text-white font-medium">{profile?.profile?.lastName}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email Address</label>
@@ -309,7 +309,7 @@ const togglePasswordVisibility = (field: PasswordField) => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone Number</label>
-                  <p className="text-gray-900 dark:text-white font-medium">{profile.profile.phone || 'Not set'}</p>
+                  <p className="text-gray-900 dark:text-white font-medium">{profile?.profile?.phone || 'Not set'}</p>
                 </div>
               </div>
             </div>

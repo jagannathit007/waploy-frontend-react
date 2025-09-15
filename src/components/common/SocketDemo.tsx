@@ -61,7 +61,7 @@ const SocketDemo: React.FC<SocketDemoProps> = ({ className = '' }) => {
       sendToCompany(companyId, {
         text: newMessage,
         timestamp: new Date().toISOString(),
-        sender: profile?.name || 'Unknown'
+        sender: profile?.profile?.firstName || 'Unknown'
       });
       setNewMessage('');
     }
@@ -72,7 +72,7 @@ const SocketDemo: React.FC<SocketDemoProps> = ({ className = '' }) => {
       sendToAll({
         text: newMessage,
         timestamp: new Date().toISOString(),
-        sender: profile?.name || 'Unknown'
+        sender: profile?.profile?.firstName ||'unknown' 
       });
       setNewMessage('');
     }

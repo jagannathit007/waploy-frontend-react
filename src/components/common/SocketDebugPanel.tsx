@@ -12,7 +12,7 @@ const SocketDebugPanel: React.FC = () => {
   const [messages, setMessages] = useState<DebugMessage[]>([]);
   const [isVisible, setIsVisible] = useState(false);
 
-  const { socket, isConnected } = useSocketEvents({
+  const { isConnected } = useSocketEvents({
     onCompanyMessage: (message) => {
       console.log('🔍 Debug Panel - Company Message:', message);
       setMessages(prev => [...prev, {
