@@ -279,12 +279,8 @@ const Chats = () => {
     try {
       const response = await getChats(customerId, token, pageNum, 20, -1); // page, limit, sort
       if (response.status === 200 && response.data) {
-        console.log('Response data:', response.data);
-        console.log('Profile ID:', profile?._id);
-
         const transformedMessages: Message[] = response.data.docs.map((msg: any) => {
           const fromValue = msg.from === profile?._id ? 'me' : 'them';
-          console.log(`Transforming message - from: ${msg.from}, to: ${msg.to}, set to: ${fromValue}`);
 
           // Determine message type and content
           let messageType = 'text';
@@ -313,11 +309,8 @@ const Chats = () => {
           // Initial load: replace messages and scroll to bottom
           setMessages(transformedMessages.reverse());
           setScrollReference(null); // Clear reference for initial load
-          console.log('🚀 Initial load - transformed messages:', transformedMessages.length);
         } else {
           // Loading more: prepend older messages and maintain reference position
-          console.log('📥 Loading more messages, current reference:', scrollReference);
-
           const container = messageContainerRef.current;
           if (container) {
             // Store current scroll position before updating
@@ -326,7 +319,6 @@ const Chats = () => {
 
             // Prepend new older messages
             setMessages((prevMessages) => [...transformedMessages.reverse(), ...prevMessages]);
-            console.log('📥 Prepended', transformedMessages.length, 'older messages');
 
             // Restore scroll position using height difference
             requestAnimationFrame(() => {
@@ -334,20 +326,11 @@ const Chats = () => {
                 const newScrollHeight = container.scrollHeight;
                 const heightDifference = newScrollHeight - prevScrollHeight;
                 const newScrollTop = prevScrollTop + heightDifference;
-
-                console.log('📍 Restoring scroll position:', {
-                  prevScrollTop,
-                  prevScrollHeight,
-                  newScrollHeight,
-                  heightDifference,
-                  newScrollTop
-                });
-
                 container.scrollTop = newScrollTop;
 
                 // Verify the scroll position was set correctly
                 setTimeout(() => {
-                  console.log('✅ Final scroll position:', container.scrollTop);
+                  // Scroll position verification
                 }, 100);
               }
             });
@@ -444,7 +427,6 @@ const Chats = () => {
   // Scroll to bottom when messages change (only for initial load or new messages)
   useEffect(() => {
     if (messageContainerRef.current && !isLoadingMore && !scrollReference) {
-      console.log('📜 Auto-scrolling to bottom (no reference set)');
       messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
     }
   }, [messages, isLoadingMore, scrollReference]);
@@ -472,14 +454,12 @@ const Chats = () => {
           const offset = messageRect.top - containerRect.top + scrollTop;
 
           setScrollReference({ messageId, offset });
-          console.log('🔍 Set scroll reference:', { messageId, offset, scrollTop });
         }
       }
     }
 
     // Load more messages when at top
     if (scrollTop === 0 && !isLoadingMore) {
-      console.log('📥 Loading more messages, page:', page + 1);
       setIsLoadingMore(true);
       const nextPage = page + 1;
       setPage(nextPage);
@@ -512,8 +492,6 @@ const Chats = () => {
       // Convert FileList to Array
       const fileArray = Array.from(files);
       
-      console.log('Selected files:', fileArray.map(f => f.name), 'Type:', mediaType);
-
       setIsSendingMessage(true);
 
       try {
@@ -922,8 +900,6 @@ const Chats = () => {
 
       const phoneNumber = selectedCustomer.phone;
 
-      console.log('Phone number being sent:', phoneNumber);
-
       const response = await sendWhatsAppMessage(
         profile.company._id,
         phoneNumber,
@@ -959,7 +935,6 @@ const Chats = () => {
 
   const renderMessage = (msg: Message) => {
     const isMe = msg.from === 'me' || msg.from === profile?._id;
-    console.log('Rendering message - from:', msg.from, 'isMe:', isMe);
     const messageContent = msg.content;
 
     let content;
@@ -1091,7 +1066,11 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
               className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900"
               onScroll={handleScroll}
             >
-              {messages.map(renderMessage)}
+              {messages.map((msg, index) => (
+                <div key={msg._id || msg.id || index} data-message-id={msg._id || msg.id}>
+                  {renderMessage(msg)}
+                </div>
+              ))}
             </div>
 
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex relative">
