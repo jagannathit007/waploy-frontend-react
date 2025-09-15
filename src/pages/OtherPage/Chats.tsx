@@ -25,7 +25,7 @@ interface Customer {
   pinned: boolean;
   isBlocked: boolean;
   email?: string;
-  // labels?: Label[];
+  labels?: Label[];
 }
 
 interface Message {
@@ -124,6 +124,8 @@ const starredMessages: StarredMessage[] = [
 
 const Chats = () => {
   const { token, profile } = useAuth();
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
@@ -399,13 +401,6 @@ const Chats = () => {
     }
   };
 
-  const handleSelectCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setPage(1); // Reset page when selecting a new customer
-    setMessages([]); // Clear previous messages
-    setScrollReference(null); // Clear scroll reference
-    loadChatMessages(customer.id, 1, true); // Initial load
-  };
 
   // Debounced search effect
   useEffect(() => {
@@ -825,9 +820,15 @@ const Chats = () => {
     );
   };
 
-  const getMedia = (type: "image" | "video" | "audio" | "document") =>
+const getMedia = (type: "image" | "video" | "audio" | "document") =>
     messages.filter((m) => m.type === type);
-  // const getMedia = (type: 'image' | 'video' | 'audio' | 'document') => messages.filter((m) => m.type === type);
+
+  const filteredMessages = messages.filter(
+    (msg) =>
+      msg.type === "text" &&
+      chatSearchQuery &&
+      msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase())
+  );
 
   return (
     <div className="flex max-h-[calc(100vh-77px)] overflow-hidden bg-gray-100 dark:bg-gray-900">
