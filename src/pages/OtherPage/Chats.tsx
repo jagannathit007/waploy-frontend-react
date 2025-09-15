@@ -1297,7 +1297,7 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white"
+                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 custom-caret"
                 disabled={isSendingMessage}
               />
               
@@ -1321,10 +1321,22 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <g transform="rotate(45 12 12)">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                          />
+                        </g>
                       </svg>
-                      Send
                     </>
                   )}
                 </button>
@@ -1426,7 +1438,7 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-2">Select a chat</h2>
+            <h2 className="text-2xl font-semibold mb-2 dark:text-white">Select a chat</h2>
               <p className="text-gray-600">
                 Choose a customer to start messaging
               </p>
@@ -1618,7 +1630,7 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
 
       {showProfileModal && selectedCustomer?.id && (
         <div
-          className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50"
+          className="fixed inset-0 bg-[#47546782] bg-opacity-30 z-50"
           onClick={() => setShowProfileModal(false)}
         >
           <div
@@ -1679,7 +1691,7 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
       )}
 
       {showSearchModal && selectedCustomer?.id && (
-        <div className="fixed inset-0 bg-[#c0d9c740] bg-opacity-30 z-50" onClick={() => setShowSearchModal(false)}>
+        <div className="fixed inset-0 bg-[#47546782] bg-opacity-30 z-50" onClick={() => setShowSearchModal(false)}>
           <div className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Search Messages</h2>
