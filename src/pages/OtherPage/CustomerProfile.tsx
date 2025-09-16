@@ -391,8 +391,8 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({
               </div>
             )}
           </div>
-          <hr className="my-4 border-gray-200 dark:border-gray-700" />
-          <div className="mb-6">
+          {/* <hr className="my-4 border-gray-200 dark:border-gray-700" /> */}
+          {/* <div className="mb-6">
             <div className="flex justify-between items-center">
               <h3 className="font-medium text-gray-900 dark:text-white">
                 Starred Messages
@@ -420,7 +420,7 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({
                 No starred messages yet.
               </p>
             )}
-          </div>
+          </div> */}
           <hr className="my-4 border-gray-200 dark:border-gray-700" />
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
