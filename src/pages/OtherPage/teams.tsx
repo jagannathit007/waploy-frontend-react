@@ -48,6 +48,8 @@ const Teams: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const token = localStorage.getItem("token") || "";
+  const userData = JSON.parse(localStorage.getItem("profile") || "{}");
+  const userRole = userData?.role;
 
   const Toast = Swal.mixin({
     toast: true,
@@ -293,7 +295,7 @@ const Teams: React.FC = () => {
             </div>
 
             {/* Create Team Button */}
-            <button
+            {userRole !== "team_member" && (<button
               onClick={() => {
                 setTeamForm({
                   id: "",
@@ -319,7 +321,7 @@ const Teams: React.FC = () => {
                 />
               </svg>
               Create Team
-            </button>
+            </button>)}
           </div>
         </div>
 
@@ -401,9 +403,9 @@ const Teams: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Description
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {userRole !== "team_member" && (<th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Actions
-                      </th>
+                      </th>)}
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-white/[0.03] divide-y divide-gray-200 dark:divide-gray-800">
@@ -434,7 +436,7 @@ const Teams: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {userRole !== "team_member" && (<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
                             <button
                               onClick={() => handleEditTeam(team)}
@@ -462,7 +464,7 @@ const Teams: React.FC = () => {
                               Delete
                             </button>
                           </div>
-                        </td>
+                        </td>)}
                       </tr>
                     ))}
                   </tbody>

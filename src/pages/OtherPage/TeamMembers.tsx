@@ -61,6 +61,8 @@ const TeamMembers: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const token = localStorage.getItem("token") || "";
+  const userData = JSON.parse(localStorage.getItem("profile") || "{}");
+  const userRole = userData?.role;
 
   const Toast = Swal.mixin({
     toast: true,
@@ -376,7 +378,7 @@ const TeamMembers: React.FC = () => {
             </div>
 
             {/* Add Member Button */}
-            <button
+            {userRole !== "team_member" && (<button
               onClick={() => {
                 setMemberForm({
                   _id: "",
@@ -403,7 +405,7 @@ const TeamMembers: React.FC = () => {
                 />
               </svg>
               Add Member
-            </button>
+            </button>)}
           </div>
         </div>
 
@@ -488,9 +490,9 @@ const TeamMembers: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {userRole !== "team_member" && (<th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Actions
-                      </th>
+                      </th>)}
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-white/[0.03] divide-y divide-gray-200 dark:divide-gray-800">
@@ -535,7 +537,7 @@ const TeamMembers: React.FC = () => {
                             {member.isActive ? "Active" : "Inactive"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {userRole !== "team_member" && (<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
                             <button
                               onClick={() => handleEditMember(member)}
@@ -572,7 +574,7 @@ const TeamMembers: React.FC = () => {
                               {member.isActive ? "Deactivate" : "Activate"}
                             </button>
                           </div>
-                        </td>
+                        </td>)}
                       </tr>
                     ))}
                   </tbody>

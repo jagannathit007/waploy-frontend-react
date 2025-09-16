@@ -12,6 +12,7 @@ import ImageMessage from '../medias/ImageMessage';
 import VideoMessage from '../medias/VideoMessage';
 import DocumentMessage from '../medias/DocumentMessage';
 import TextMessage from '../medias/TextMessage';
+import ContactMessage from '../medias/ContactMessage';
 
 interface Label {
   _id: string;
@@ -167,6 +168,7 @@ const Chats = () => {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [recordingTimer, setRecordingTimer] = useState<number | null>(null);
   const [refreshTimeout, setRefreshTimeout] = useState<number | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   const messageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -575,24 +577,29 @@ const Chats = () => {
     }
   };
 
-  const handleMediaSelect = async (mediaType: 'image' | 'video' | 'audio' | 'document') => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = mediaType === 'image' ? 'image/*' :
-      mediaType === 'video' ? 'video/*' :
-        mediaType === 'audio' ? 'audio/*' :
-          '.pdf,.doc,.docx,.txt,.xlsx,.xls';
-    
-    // Allow multiple selection for images
-    if (mediaType === 'image') {
-      input.multiple = true;
-    }
+const handleMediaSelect = async (mediaType: 'image' | 'video' | 'audio' | 'document' | 'contact') => {
+  if (mediaType === 'contact') {
+    setShowContactModal(true); // Open contact list modal
+    setShowMediaOptions(false); // Close media options dropdown
+    return;
+  }
 
-    input.onchange = async (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (!files || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
-        return;
-      }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = mediaType === 'image' ? 'image/*' :
+    mediaType === 'video' ? 'video/*' :
+      mediaType === 'audio' ? 'audio/*' :
+        '.pdf,.doc,.docx,.txt,.xlsx,.xls';
+
+  // Allow multiple selection for images
+  if (mediaType === 'image') {
+    input.multiple = true;
+  }
+  input.onchange = async (e) => {
+    const files = (e.target as HTMLInputElement).files;
+    if (!files || !selectedCustomer || !token || !profile?.company?._id || !profile?._id) {
+      return;
+    }
 
       // Convert FileList to Array
       const fileArray = Array.from(files);
@@ -708,6 +715,76 @@ const Chats = () => {
     input.click();
     setShowMediaOptions(false);
   };
+  
+
+  const handleSendContact = async (contact: Customer) => {
+  if (!selectedCustomer || !token || !profile?.company?._id || !profile?._id) return;
+
+  setIsSendingMessage(true);
+  const contactMessage = `Contact: ${contact.name}, ${contact.phone}`;
+  const tempMessage: Message = {
+    id: Date.now().toString(),
+    from: 'me',
+    type: 'contact',
+    content: contactMessage,
+    time: new Date().toLocaleTimeString(),
+  };
+
+  try {
+    // Add temporary message to UI
+    setMessages((prev) => [...prev, tempMessage]);
+    setCustomers(
+      customers.map((c) =>
+        c.id === selectedCustomer.id
+          ? { ...c, lastMessage: contactMessage, lastTime: tempMessage.time }
+          : c
+      )
+    );
+
+    // Send contact via WhatsApp API
+    const response = await sendWhatsAppMessage(
+      profile.company._id,
+      selectedCustomer.phone,
+      contactMessage,
+      selectedCustomer.id,
+      profile._id,
+      false,
+      token
+    );
+
+    if (response.success) {
+      // Update message status to sent
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempMessage.id ? { ...msg, status: 'sent' } : msg
+        )
+      );
+      await loadChatMessages(selectedCustomer.id, 1, true);
+      Toast.fire({
+        icon: 'success',
+        title: 'Contact sent successfully!',
+      });
+    } else {
+      // Remove temporary message on failure
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempMessage.id));
+      Toast.fire({
+        icon: 'error',
+        title: response.message || 'Failed to send contact',
+      });
+    }
+  } catch (error) {
+    console.error('Error sending contact:', error);
+    setMessages((prev) => prev.filter((msg) => msg.id !== tempMessage.id));
+    Toast.fire({
+      icon: 'error',
+      title: 'Failed to send contact. Please try again.',
+    });
+  } finally {
+    setIsSendingMessage(false);
+    setShowContactModal(false); // Close the contact modal
+  }
+};
+
   const handleSelectCustomer = async (customer: Customer) => {
     try {
       const token = localStorage.getItem('token');
@@ -740,6 +817,7 @@ const Chats = () => {
         
         // Load chat messages for the selected customer
         await loadChatMessages(customer.id, 1, true);
+        setRefresh((prev) => prev + 1);
       } else {
         throw new Error('Failed to fetch customer details');
       }
@@ -753,6 +831,7 @@ const Chats = () => {
       setScrollReference(null);
       // Still try to load chat messages even with fallback data
       await loadChatMessages(customer.id, 1, true);
+      setRefresh((prev) => prev + 1);
     }
   };
 
@@ -1091,102 +1170,123 @@ const Chats = () => {
   };
 
   const renderMessage = (msg: Message) => {
-    const isMe = msg.from === 'me' || msg.from === profile?._id;
-    const messageContent = msg.content;
+  const isMe = msg.from === 'me' || msg.from === profile?._id;
+  const messageContent = msg.content;
+  let content;
 
-    let content;
+  switch (msg.type) {
+    case 'image':
+      content = (
+        <ImageMessage
+          content={messageContent}
+          time={msg.time}
+          isMe={isMe}
+          status={msg.status}
+          createdAt={msg.createdAt}
+        />
+      );
+      break;
+    case 'video':
+      content = (
+        <VideoMessage
+          content={messageContent}
+          time={msg.time}
+          isMe={isMe}
+          status={msg.status}
+          createdAt={msg.createdAt}
+        />
+      );
+      break;
+    case 'audio':
+      content = (
+        <AudioMessage
+          content={messageContent}
+          time={msg.time}
+          isMe={isMe}
+          status={msg.status}
+          messageId={msg.id}
+          createdAt={msg.createdAt}
+        />
+      );
+      break;
+    case 'document':
+      content = (
+        <DocumentMessage
+          content={messageContent}
+          time={msg.time}
+          isMe={isMe}
+          status={msg.status}
+          createdAt={msg.createdAt}
+        />
+      );
+      break;
+    case 'contact':
+      content = (
+        <ContactMessage
+          content={messageContent}
+          time={msg.time}
+          isMe={isMe}
+          status={msg.status}
+          createdAt={msg.createdAt}
+        />
+      );
+      break;
+    default:
+      content = (
+        <TextMessage
+          content={messageContent}
+          time={msg.time}
+          isMe={isMe}
+          status={msg.status}
+          createdAt={msg.createdAt}
+        />
+      );
+  }
 
-    switch (msg.type) {
-      case 'image':
-        content = (
-          <ImageMessage
-            content={messageContent}
-            time={msg.time}
-            isMe={isMe}
-            status={msg.status}
-            createdAt={msg.createdAt}
-          />
-        );
-        break;
-      case 'video':
-        content = (
-          <VideoMessage
-            content={messageContent}
-            time={msg.time}
-            isMe={isMe}
-            status={msg.status}
-            createdAt={msg.createdAt}
-          />
-        );
-        break;
-      case 'audio':
-        content = (
-          <AudioMessage
-            content={messageContent}
-            time={msg.time}
-            isMe={isMe}
-            status={msg.status}
-            messageId={msg.id}
-            createdAt={msg.createdAt}
-          />
-        );
-        break;
-      case 'document':
-        content = (
-          <DocumentMessage
-            content={messageContent}
-            time={msg.time}
-            isMe={isMe}
-            status={msg.status}
-            createdAt={msg.createdAt}
-          />
-        );
-        break;
-      case 'contact':
-        content = <div className="bg-gray-100 p-2 rounded">{messageContent}</div>;
-        break;
-      default:
-        content = (
-          <TextMessage
-            content={messageContent}
-            time={msg.time}
-            isMe={isMe}
-            status={msg.status}
-            createdAt={msg.createdAt}
-          />
-        );
-    }
-
-    return (
-      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`} data-message-id={msg._id || msg.id}>
-        <div className={`relative ${msg.type === 'image' || msg.type === 'video' ? 'max-w-xs p-1' : msg.type === 'document' ? 'max-w-sm p-1 overflow-hidden' : 'max-w-md px-3 py-2'} rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} ${msg.type === 'image' || msg.type === 'video' || msg.type === 'document' ? '' : 'overflow-wrap-anywhere'}`}>
-          {isMe ? (
-            <svg
-              className="absolute top-0 right-[-5px] w-3 h-3 text-green-500 transform rotate-90"
-              viewBox="0 0 12 12"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
-            </svg>
-          ) : (
-            <svg
-              className="absolute top-0 left-[-5px] w-3 h-3 text-gray-600 transform rotate-90"
-              viewBox="0 0 12 12"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
-            </svg>
-          )}
-
-          <div className="flex items-end justify-end">
-            {content}
-          </div>
-        </div>
+  return (
+    <div
+      className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}
+      data-message-id={msg._id || msg.id}
+    >
+      <div
+        className={`relative ${
+          msg.type === 'image' || msg.type === 'video'
+            ? 'max-w-xs p-1'
+            : msg.type === 'document'
+            ? 'max-w-sm p-1 overflow-hidden'
+            : 'max-w-md px-3 py-2'
+        } rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${
+          isMe ? 'rounded-br-sm' : 'rounded-bl-sm'
+        } ${
+          msg.type === 'image' || msg.type === 'video' || msg.type === 'document'
+            ? ''
+            : 'overflow-wrap-anywhere'
+        }`}
+      >
+        {isMe ? (
+          <svg
+            className="absolute top-0 right-[-5px] w-3 h-3 text-green-500 transform rotate-90"
+            viewBox="0 0 12 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+          </svg>
+        ) : (
+          <svg
+            className="absolute top-0 left-[-5px] w-3 h-3 text-gray-600 transform rotate-90"
+            viewBox="0 0 12 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+          </svg>
+        )}
+        <div className="flex items-end justify-end">{content}</div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
 const getMedia = (type: "image" | "video" | "audio" | "document") =>
     messages.filter((m) => m.type === type);
@@ -1245,51 +1345,111 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
 
                 {/* Media Options Dropdown */}
                 {showMediaOptions && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 z-10 w-48">
-                    <div className="flex flex-col space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => handleMediaSelect('image')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      >
-                        <svg className="w-5 h-5 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="font-medium">Image</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMediaSelect('video')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      >
-                        <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        <span className="font-medium">Video</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMediaSelect('audio')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      >
-                        <svg className="w-5 h-5 mr-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                        <span className="font-medium">Audio File</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMediaSelect('document')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      >
-                        <svg className="w-5 h-5 mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="font-medium">Document</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 z-10 w-48">
+    <div className="flex flex-col space-y-2">
+      <button
+        type="button"
+        onClick={() => handleMediaSelect('image')}
+        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <svg
+          className="w-5 h-5 mr-3 text-blue-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <span className="font-medium">Image</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => handleMediaSelect('video')}
+        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <svg
+          className="w-5 h-5 mr-3 text-red-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+        <span className="font-medium">Video</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => handleMediaSelect('audio')}
+        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <svg
+          className="w-5 h-5 mr-3 text-green-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+          />
+        </svg>
+        <span className="font-medium">Audio File</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => handleMediaSelect('document')}
+        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <svg
+          className="w-5 h-5 mr-3 text-purple-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+        <span className="font-medium">Document</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => handleMediaSelect('contact')}
+        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <svg
+          className="w-5 h-5 mr-3 text-yellow-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          />
+        </svg>
+        <span className="font-medium">Contact</span>
+      </button>
+    </div>
+  </div>
+)}
               </div>
 
               <input
@@ -1734,6 +1894,80 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
           </div>
         </div>
       )}
+
+      {showContactModal && (
+  <div
+    className="fixed inset-0 bg-[#47546782] bg-opacity-30 z-50"
+    onClick={() => setShowContactModal(false)}
+  >
+    <div
+      className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-lg overflow-y-auto"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Select Contact
+        </h2>
+        <button
+          onClick={() => setShowContactModal(false)}
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+      <div className="p-4">
+        <input
+          type="text"
+          placeholder="Search contacts..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full p-2 border rounded-lg mb-4 dark:bg-gray-800 dark:text-white dark:border-gray-600"
+        />
+        <div className="space-y-2">
+          {customers
+            .filter((customer) =>
+              customer.name.toLowerCase().includes(search.toLowerCase()) ||
+              customer.phone.includes(search)
+            )
+            .map((customer) => (
+              <div
+                key={customer.id}
+                className="flex items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer"
+                onClick={() => handleSendContact(customer)}
+              >
+                <div className="flex-shrink-0 w-10 h-10 bg-emerald-100 dark:bg-emerald-800/20 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                    {getInitials(customer.name)}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {customer.name}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {customer.phone}
+                  </p>
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       
     </div>
   );
