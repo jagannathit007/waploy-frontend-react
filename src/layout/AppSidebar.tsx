@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
+import{Tag}from 'lucide-react';
+
 import Swal from "sweetalert2";
 import {
   ChevronDownIcon,
@@ -65,7 +67,7 @@ const navItems: NavItem[] = [
   },
 
   {
-    icon: <HorizontaLDots />,
+    icon: <Tag />,
     name: "Lables",
     path: "/lables",
   },
