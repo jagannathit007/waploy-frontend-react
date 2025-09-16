@@ -12,6 +12,7 @@ import {
   QrCode,
 } from "lucide-react";
 import axios from "axios";
+import { useSocket } from "../../context/SocketContext";
 
 interface QRCodeResponse {
   success: boolean;
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [counts, setCounts] = useState<DashboardCounts>({
     totalMessages: 0,
     totalImages: 0,
@@ -62,6 +64,9 @@ export default function Dashboard() {
   });
   const [countsLoading, setCountsLoading] = useState(true);
   const [countsError, setCountsError] = useState<string | null>(null);
+
+  // Socket integration
+  const { socket, isConnected: socketConnected } = useSocket();
 
   // Get companyId from local storage
   const profile = JSON.parse(localStorage.getItem("profile") || "{}") as ProfileData;
@@ -168,6 +173,7 @@ export default function Dashboard() {
       if (response.data.success) {
         setQrCode(null);
         setError(null);
+        setIsConnected(false);
       } else {
         setError(response.data.message || "Failed to disconnect from WhatsApp");
       }
@@ -178,6 +184,69 @@ export default function Dashboard() {
       setIsDisconnecting(false);
     }
   };
+
+  // Socket event handlers
+  const handleWhatsAppConnectionStatus = (data: any) => {
+    console.log('WhatsApp connection status received:', data);
+    
+    // Handle nested companyId structure
+    const actualCompanyId = data.companyId?.companyId || data.companyId;
+    const isConnected = data.isConnected;
+    
+    console.log('Extracted companyId:', actualCompanyId);
+    console.log('Connection status:', isConnected);
+    
+    setIsConnected(isConnected);
+    
+    if (isConnected) {
+      // If connected, clear QR code
+      setQrCode(null);
+      setError(null);
+    }
+    // Note: We don't automatically fetch QR code when disconnected
+    // User must click "Connect" button to initiate QR code generation
+  };
+
+  const handleCompanyMessage = (data: any) => {
+    console.log('Company message received:', data);
+    
+    if (data.type === 'qr change') {
+      console.log('QR change detected, updating QR code');
+      
+      // Extract QR data from content (remove "qr change " prefix)
+      let qrData = data.content;
+      if (qrData.startsWith('qr change ')) {
+        qrData = qrData.substring('qr change '.length);
+      }
+      
+      console.log('Extracted QR data:', qrData);
+      
+      // Generate QR code URL from extracted QR data
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=208x208&data=${encodeURIComponent(qrData)}`;
+      setQrCode(qrCodeUrl);
+      setError(null);
+      setIsLoading(false);
+    }
+  };
+
+  // Socket event listeners
+  useEffect(() => {
+    if (socket && socketConnected) {
+      // Listen for WhatsApp connection status
+      socket.on('whatsapp-connection-status', handleWhatsAppConnectionStatus);
+      
+      // Listen for company messages (including QR changes)
+      socket.on('companyMessage', handleCompanyMessage);
+
+      // Check initial connection status
+      socket.emit('check-whatsapp-connection', { companyId });
+
+      return () => {
+        socket.off('whatsapp-connection-status', handleWhatsAppConnectionStatus);
+        socket.off('companyMessage', handleCompanyMessage);
+      };
+    }
+  }, [socket, socketConnected, companyId]);
 
   // Fetch counts on component mount
   useEffect(() => {
@@ -321,7 +390,18 @@ export default function Dashboard() {
               {/* QR Code Display */}
               <div className="flex justify-center">
                 <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 dark:bg-gray-50">
-                  {isLoading ? (
+                  {isConnected === true ? (
+                    <div className="w-52 h-52 bg-green-100 dark:bg-green-900/20 rounded-lg flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-3">
+                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <p className="text-green-600 dark:text-green-400 font-medium text-center">
+                        WhatsApp Connected
+                      </p>
+                    </div>
+                  ) : isLoading ? (
                     <div className="w-52 h-52 bg-gray-200 dark:bg-gray-300 rounded-lg flex items-center justify-center">
                       <p className="text-gray-500">Loading QR code...</p>
                     </div>
@@ -353,8 +433,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Disconnect Button (shown only when QR code is present) */}
-              {qrCode && (
+              {/* Disconnect Button (shown only when connected) */}
+              {isConnected === true && (
                 <div className="flex justify-center">
                   <button
                     onClick={handleDisconnect}

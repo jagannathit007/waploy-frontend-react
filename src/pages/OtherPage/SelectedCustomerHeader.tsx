@@ -45,18 +45,7 @@ const SelectedCustomerHeader: React.FC<SelectedCustomerHeaderProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-semibold dark:text-white">{selectedCustomer.name}</h3>
-            {/* Socket Status Indicator */}
-            <div className="flex items-center gap-1">
-              <div 
-                className={`w-2 h-2 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-red-500'
-                }`}
-                title={isConnected ? 'Real-time messaging active' : 'Real-time messaging offline'}
-              />
-              <span className="text-xs text-gray-500">
-                {isConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
+            
           </div>
           <p className="text-sm text-gray-600">{selectedCustomer.phone}</p>
         </div>

@@ -235,7 +235,7 @@ const Chats = () => {
   }, [location.state, customers]);
 
   // Socket functionality for real-time messaging
-  const { socket, isConnected, sendToCompany } = useSocketEvents({
+  const { socket, isConnected, sendToCompany, checkWhatsAppConnection } = useSocketEvents({
     onCompanyMessage: (message) => {
       console.log('📨 Received real-time message in chat:', message);
       
@@ -300,6 +300,13 @@ const Chats = () => {
     onCustomerAdded: (customer) => {
       console.log('👤 Customer added event received in Chats:', customer);
       // Toast is handled globally, no need to show it here
+    },
+    onWhatsAppConnectionStatus: (status) => {
+      console.log('📱 WhatsApp connection status received:', status);
+      // Toast.fire({
+      //   icon: 'info',
+      //   title: `WhatsApp Status: ${status.isConnected ? 'Connected' : 'Disconnected'}`
+      // });
     }
   });
 
@@ -681,11 +688,6 @@ const Chats = () => {
             }
           }
 
-          // Show success message for multiple images
-          Toast.fire({
-            icon: 'success',
-            title: `${fileArray.length} images sent successfully!`
-          });
 
           // Reload messages to get the actual sent messages
           await loadChatMessages(selectedCustomer.id, 1, true);
@@ -720,12 +722,6 @@ const Chats = () => {
           );
 
           if (response.success) {
-            Toast.fire({
-              icon: 'success',
-              title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} sent successfully!`
-            });
-
-            // Reload messages to get the actual sent message
             await loadChatMessages(selectedCustomer.id, 1, true);
           } else {
             // Remove temporary message on failure
@@ -1016,8 +1012,6 @@ const Chats = () => {
       );
 
       if (response.success) {
-        Toast.fire({ icon: "success", title: "Audio sent successfully" });
-        // Reload messages to get the actual sent message
         await loadChatMessages(selectedCustomer.id, 1, true);
       } else {
         Toast.fire({ icon: "error", title: "Failed to send audio" });
@@ -1296,7 +1290,11 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
               ))}
             </div>
 
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex relative">
+            <form onSubmit={handleSendMessage} className={`p-4 border-t border-gray-200 dark:border-gray-800 flex relative transition-colors duration-200 ${
+              isPrivateChat 
+                ? 'bg-gray-800 dark:bg-gray-900' 
+                : 'bg-white dark:bg-gray-800'
+            }`}>
               {/* Private Chat Toggle */}
               <div className="flex items-center mr-2">
                 <label className="flex items-center cursor-pointer">
@@ -1319,6 +1317,9 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                 </label>
               </div>
 
+              {/* WhatsApp Connection Test Button */}
+             
+
               {/* Plus Icon for Media */}
               <div className="relative media-options-container">
                 <button
@@ -1333,12 +1334,20 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
 
                 {/* Media Options Dropdown */}
                 {showMediaOptions && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 z-10 w-48">
+                  <div className={`absolute bottom-full left-0 mb-2 border rounded-lg shadow-lg p-3 z-10 w-48 transition-colors duration-200 ${
+                    isPrivateChat 
+                      ? 'bg-gray-900 border-gray-600' 
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}>
                     <div className="flex flex-col space-y-2">
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('image')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className={`flex items-center px-4 py-3 text-sm rounded-lg transition-colors ${
+                          isPrivateChat 
+                            ? 'text-gray-300 hover:bg-gray-800' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
                       >
                         <svg className="w-5 h-5 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1348,7 +1357,11 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('video')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className={`flex items-center px-4 py-3 text-sm rounded-lg transition-colors ${
+                          isPrivateChat 
+                            ? 'text-gray-300 hover:bg-gray-800' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
                       >
                         <svg className="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -1358,7 +1371,11 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('audio')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className={`flex items-center px-4 py-3 text-sm rounded-lg transition-colors ${
+                          isPrivateChat 
+                            ? 'text-gray-300 hover:bg-gray-800' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
                       >
                         <svg className="w-5 h-5 mr-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -1368,7 +1385,11 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                       <button
                         type="button"
                         onClick={() => handleMediaSelect('document')}
-                        className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className={`flex items-center px-4 py-3 text-sm rounded-lg transition-colors ${
+                          isPrivateChat 
+                            ? 'text-gray-300 hover:bg-gray-800' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
                       >
                         <svg className="w-5 h-5 mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1385,7 +1406,11 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 p-2 border rounded-l-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 custom-caret"
+                className={`flex-1 p-2 border rounded-l-lg focus:outline-none focus:ring-0 custom-caret transition-colors duration-200 ${
+                  isPrivateChat 
+                    ? 'bg-gray-700 text-white border-gray-600 placeholder-gray-400' 
+                    : 'dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600'
+                }`}
                 disabled={isSendingMessage}
               />
               

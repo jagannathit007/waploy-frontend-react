@@ -11,6 +11,7 @@ interface UseSocketEventsProps {
   onChatAssigned?: (assignment: any) => void;
   onTaskAssigned?: (assignment: any) => void;
   onPrivateChatStarted?: (chatData: any) => void;
+  onWhatsAppConnectionStatus?: (status: any) => void;
 }
 
 export const useSocketEvents = ({
@@ -21,6 +22,7 @@ export const useSocketEvents = ({
   onChatAssigned,
   onTaskAssigned,
   onPrivateChatStarted,
+  onWhatsAppConnectionStatus,
 }: UseSocketEventsProps = {}) => {
   const { socket, isConnected, joinRoom, leaveRoom, sendToCompany, sendToAll, setPrivateOn, setPrivateOff } = useSocket();
   const { showCustomerAddedToast, showChatAssignedToast, showTaskAssignedToast, showPrivateChatStartedToast } = useToast();
@@ -37,6 +39,7 @@ export const useSocketEvents = ({
   const stableOnChatAssigned = useCallback(onChatAssigned || emptyCallback, [onChatAssigned, emptyCallback]);
   const stableOnTaskAssigned = useCallback(onTaskAssigned || emptyCallback, [onTaskAssigned, emptyCallback]);
   const stableOnPrivateChatStarted = useCallback(onPrivateChatStarted || emptyCallback, [onPrivateChatStarted, emptyCallback]);
+  const stableOnWhatsAppConnectionStatus = useCallback(onWhatsAppConnectionStatus || emptyCallback, [onWhatsAppConnectionStatus, emptyCallback]);
 
   // Memoize toast functions to prevent dependency array changes
   const stableShowCustomerAddedToast = useCallback(showCustomerAddedToast, [showCustomerAddedToast]);
@@ -196,7 +199,6 @@ export const useSocketEvents = ({
       stableOnGlobalMessage(message);
     };
 
-
     // Private status change handler - matches utils/socket.js 'companyMessage' for status updates
     const handlePrivateStatusChange = (status: string) => {
       console.log('🔒 Private status changed:', status);
@@ -214,12 +216,22 @@ export const useSocketEvents = ({
       }
     });
 
+    // WhatsApp connection status handler
+    const handleWhatsAppConnectionStatus = (status: any) => {
+      console.log('📱 WhatsApp connection status:', status);
+      stableOnWhatsAppConnectionStatus(status);
+    };
+
+    // Register WhatsApp connection status listener
+    socket.on('whatsapp-connection-status', handleWhatsAppConnectionStatus);
+
     // Cleanup
     return () => {
       socket.off('companyMessage', handleCompanyMessage);
       socket.off('message', handleGlobalMessage);
+      socket.off('whatsapp-connection-status', handleWhatsAppConnectionStatus);
     };
-  }, [socket, isConnected, stableOnCompanyMessage, stableOnGlobalMessage, stableOnPrivateStatusChange, stableOnCustomerAdded, stableOnChatAssigned, stableOnTaskAssigned, stableOnPrivateChatStarted, stableShowCustomerAddedToast, stableShowChatAssignedToast, stableShowTaskAssignedToast, stableShowPrivateChatStartedToast, profile?._id]);
+  }, [socket, isConnected, stableOnCompanyMessage, stableOnGlobalMessage, stableOnPrivateStatusChange, stableOnCustomerAdded, stableOnChatAssigned, stableOnTaskAssigned, stableOnPrivateChatStarted, stableOnWhatsAppConnectionStatus, stableShowCustomerAddedToast, stableShowChatAssignedToast, stableShowTaskAssignedToast, stableShowPrivateChatStartedToast, profile?._id]);
 
   // Wrapper functions with error handling - matching utils/socket.js functionality
   const safeJoinRoom = useCallback((companyId: string) => {
@@ -294,6 +306,25 @@ export const useSocketEvents = ({
     }
   }, [setPrivateOff]);
 
+  // WhatsApp connection testing function
+  const checkWhatsAppConnection = useCallback((companyId: string) => {
+    try {
+      if (!socket || !isConnected) {
+        console.error('❌ Socket not connected');
+        return;
+      }
+      if (!companyId) {
+        console.error('❌ Missing companyId');
+        return;
+      }
+      
+      console.log('🔍 Checking WhatsApp connection for company:', companyId);
+      socket.emit('check-whatsapp-connection', companyId);
+    } catch (error) {
+      console.error('Error checking WhatsApp connection:', error);
+    }
+  }, [socket, isConnected]);
+
   return {
     socket,
     isConnected,
@@ -303,5 +334,6 @@ export const useSocketEvents = ({
     sendToAll: safeSendToAll,
     setPrivateOn: safeSetPrivateOn,
     setPrivateOff: safeSetPrivateOff,
+    checkWhatsAppConnection,
   };
 };

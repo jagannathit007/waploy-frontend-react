@@ -32,9 +32,14 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     if (profile?.company?._id) {
       // Initialize socket connection - matching utils/socket.js CORS config
       const newSocket = io(BACKEND_URL, {
-        transports: ['websocket', 'polling'],
-        timeout: 20000,
-        forceNew: true
+        transports: ['websocket'],
+        reconnection: true,           // default is true
+        reconnectionAttempts: 5,      // number of reconnection attempts before giving up
+        reconnectionDelay: 1000,      // time between attempts
+        reconnectionDelayMax: 5000    // maximum delay between attempts
+      });
+      newSocket.on('reconnect', (attemptNumber) => {
+        console.log(`Reconnected after ${attemptNumber} attempts`);
       });
 
       // Connection event handlers
@@ -47,6 +52,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         if (companyId) {
           newSocket.emit('joinRoom', { companyId });
           console.log(`✅ ${newSocket.id} joined Company Room (companyId: ${companyId})`);
+          newSocket.emit('check-whatsapp-connection', companyId);
         }
       });
 
@@ -55,8 +61,20 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         setIsConnected(false);
       });
 
+      newSocket.on('reconnect', (attemptNumber) => {
+        console.log(`Reconnected after ${attemptNumber} attempts`);
+      });
+
+      newSocket.on('reconnect_attempt', (attemptNumber) => {
+        console.log(`Reconnection attempt #${attemptNumber}`);
+      });
+
+      newSocket.on('reconnect_error', (error) => {
+        console.error('Reconnection error:', error);
+      });
+
       newSocket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error);
+        console.error('❌ Socket connection error:', error.message);
         setIsConnected(false);
       });
 
@@ -69,7 +87,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       newSocket.on('companyMessage', (message) => {
         console.log('📨 Received company message:', message);
         // Handle company-specific messages here
-        // You can emit custom events or update state as needed
       });
 
       setSocket(newSocket);
@@ -104,6 +121,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       socket.emit('joinRoom', { companyId });
       console.log(`🗂️ Added mapping: companyId=${companyId} -> socketId=${socket.id}`);
       console.log(`✅ ${socket.id} joined Company Room (companyId: ${companyId})`);
+      socket.emit('check-whatsapp-connection', companyId);
     }
   };
 
