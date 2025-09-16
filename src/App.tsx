@@ -16,6 +16,7 @@ import { ToastProvider, useToast } from "./context/ToastContext";
 import CustomerAddedToast from "./components/common/CustomerAddedToast";
 import ChatAssignedToast from "./components/common/ChatAssignedToast";
 import TaskAssignedToast from "./components/common/TaskAssignedToast";
+import PrivateChatStartedToast from "./components/common/PrivateChatStartedToast";
 import Teams from "./pages/OtherPage/teams";
 import Lables from "./pages/OtherPage/MasterLable";
 import SubscriptionManagement from "./pages/OtherPage/SubscriptionManagement";
@@ -90,7 +91,16 @@ function AppContent() {
     }
     
     function ToastRenderer() {
-      const { customerAddedToast, hideCustomerAddedToast, chatAssignedToast, hideChatAssignedToast, taskAssignedToast, hideTaskAssignedToast } = useToast();
+      const { 
+        customerAddedToast, 
+        hideCustomerAddedToast, 
+        chatAssignedToast, 
+        hideChatAssignedToast, 
+        taskAssignedToast, 
+        hideTaskAssignedToast,
+        privateChatStartedToast,
+        hidePrivateChatStartedToast
+      } = useToast();
       
       return (
         <>
@@ -113,6 +123,13 @@ function AppContent() {
               isVisible={taskAssignedToast.isVisible}
               onClose={hideTaskAssignedToast}
               assignmentData={taskAssignedToast.data}
+            />
+          )}
+          {privateChatStartedToast.isVisible && privateChatStartedToast.data && (
+            <PrivateChatStartedToast
+              isVisible={privateChatStartedToast.isVisible}
+              onClose={hidePrivateChatStartedToast}
+              chatData={privateChatStartedToast.data}
             />
           )}
         </>

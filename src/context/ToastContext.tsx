@@ -38,6 +38,16 @@ interface TaskAssignedData {
   timestamp: string;
 }
 
+interface PrivateChatStartedData {
+  customerId: string;
+  customerName: string;
+  startedBy: {
+    userId: string;
+    userName: string;
+  };
+  timestamp: string;
+}
+
 interface ToastContextType {
   showCustomerAddedToast: (data: CustomerAddedData) => void;
   hideCustomerAddedToast: () => void;
@@ -56,6 +66,12 @@ interface ToastContextType {
   taskAssignedToast: {
     isVisible: boolean;
     data: TaskAssignedData | null;
+  };
+  showPrivateChatStartedToast: (data: PrivateChatStartedData) => void;
+  hidePrivateChatStartedToast: () => void;
+  privateChatStartedToast: {
+    isVisible: boolean;
+    data: PrivateChatStartedData | null;
   };
 }
 
@@ -85,6 +101,14 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [taskAssignedToast, setTaskAssignedToast] = useState<{
     isVisible: boolean;
     data: TaskAssignedData | null;
+  }>({
+    isVisible: false,
+    data: null,
+  });
+
+  const [privateChatStartedToast, setPrivateChatStartedToast] = useState<{
+    isVisible: boolean;
+    data: PrivateChatStartedData | null;
   }>({
     isVisible: false,
     data: null,
@@ -132,6 +156,20 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     });
   };
 
+  const showPrivateChatStartedToast = (data: PrivateChatStartedData) => {
+    setPrivateChatStartedToast({
+      isVisible: true,
+      data,
+    });
+  };
+
+  const hidePrivateChatStartedToast = () => {
+    setPrivateChatStartedToast({
+      isVisible: false,
+      data: null,
+    });
+  };
+
   const value: ToastContextType = {
     showCustomerAddedToast,
     hideCustomerAddedToast,
@@ -142,6 +180,9 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     showTaskAssignedToast,
     hideTaskAssignedToast,
     taskAssignedToast,
+    showPrivateChatStartedToast,
+    hidePrivateChatStartedToast,
+    privateChatStartedToast,
   };
 
   return (

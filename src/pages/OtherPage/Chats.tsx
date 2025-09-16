@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
+import { useLocation } from 'react-router';
 import CustomerList from './CustomerList';
 import { sendWhatsAppMessage, sendWhatsAppMedia, getChats, searchChats } from '../../services/api/whatsappService';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +32,7 @@ interface Customer {
   isBlocked: boolean;
   email?: string;
   labels?: Label[];
+  isPrivate?: boolean;
 }
 
 interface Message {
@@ -43,6 +45,7 @@ interface Message {
   time: string;
   createdAt?: string;
   status?: string;
+  isPrivate?: boolean;
 }
 
 interface StarredMessage {
@@ -129,6 +132,7 @@ const starredMessages: StarredMessage[] = [
 
 const Chats = () => {
   const { token, profile } = useAuth();
+  const location = useLocation();
   const [labels, setLabels] = useState<Label[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
@@ -167,8 +171,31 @@ const Chats = () => {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [recordingTimer, setRecordingTimer] = useState<number | null>(null);
   const [refreshTimeout, setRefreshTimeout] = useState<number | null>(null);
+  const [isPrivateChat, setIsPrivateChat] = useState(false);
 
   const messageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Function to handle private chat toggle change
+  const handlePrivateChatToggle = (isPrivate: boolean) => {
+    setIsPrivateChat(isPrivate);
+    
+    // Send socket notification when private chat is turned ON
+    if (isPrivate && selectedCustomer && profile?.company?._id && profile?._id && isConnected && socket) {
+      const privateChatNotification = {
+        type: 'private chat started',
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        startedBy: {
+          userId: profile._id,
+          userName: profile?.profile?.firstName || 'Team Member'
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('🔒 Sending private chat started notification:', privateChatNotification);
+      sendToCompany(profile.company._id, privateChatNotification);
+    }
+  };
 
   // Debounced refresh function to avoid multiple rapid API calls
   const debouncedRefreshChat = (customerId: string) => {
@@ -193,6 +220,19 @@ const Chats = () => {
       }
     };
   }, [refreshTimeout]);
+
+  // Handle navigation state for auto-selecting customer from notification
+  useEffect(() => {
+    if (location.state?.selectCustomer && customers.length > 0) {
+      const customerToSelect = customers.find(customer => customer.id === location.state.selectCustomer);
+      if (customerToSelect) {
+        console.log('🎯 Auto-selecting customer from notification:', customerToSelect.name);
+        handleSelectCustomer(customerToSelect);
+        // Clear the navigation state to prevent re-selection
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, customers]);
 
   // Socket functionality for real-time messaging
   const { socket, isConnected, sendToCompany } = useSocketEvents({
@@ -396,7 +436,8 @@ const Chats = () => {
             content: messageContent,
             time: new Date(msg.createdAt).toLocaleTimeString(),
             createdAt: msg.createdAt,
-            status: msg.status
+            status: msg.status,
+            isPrivate: msg.isPrivate || false
           };
         });
 
@@ -473,7 +514,8 @@ const Chats = () => {
             content: messageContent,
             time: new Date(msg.createdAt).toLocaleTimeString(),
             createdAt: msg.createdAt,
-            status: msg.status
+            status: msg.status,
+            isPrivate: msg.isPrivate || false
           };
         });
         setSearchResults(transformedMessages.reverse());
@@ -613,6 +655,7 @@ const Chats = () => {
               type: mediaType,
               content: file.name,
               time: new Date().toLocaleTimeString(),
+              isPrivate: isPrivateChat,
             };
 
             // Add temporary message to UI
@@ -627,7 +670,7 @@ const Chats = () => {
               '', // caption
               selectedCustomer.id,
               profile._id,
-              false,
+              isPrivateChat,
               token
             );
 
@@ -657,6 +700,7 @@ const Chats = () => {
             type: mediaType,
             content: file.name,
             time: new Date().toLocaleTimeString(),
+            isPrivate: isPrivateChat,
           };
 
           // Add temporary message to UI
@@ -671,7 +715,7 @@ const Chats = () => {
             '', // caption
             selectedCustomer.id,
             profile._id,
-            false,
+            isPrivateChat,
             token
           );
 
@@ -731,8 +775,12 @@ const Chats = () => {
           unread: customer.unread || 0,
           pinned: customer.pinned || false,
           isBlocked: customer.isBlocked || false,
+          isPrivate: customer.isPrivate || false,
         };
         setSelectedCustomer(updatedCustomer);
+        
+        // Set private chat state based on customer's private status
+        setIsPrivateChat(customer.isPrivate || false);
         
         // Reset pagination state for new customer
         setPage(1);
@@ -947,6 +995,7 @@ const Chats = () => {
       type: 'audio',
       content: 'Recording...',
       time: new Date().toLocaleTimeString(),
+      isPrivate: isPrivateChat,
     };
 
     setMessages(prev => [...prev, tempMessage]);
@@ -962,7 +1011,7 @@ const Chats = () => {
         '', // caption
         selectedCustomer.id, // customerId
         profile._id, // userId
-        false, // isPrivate
+        isPrivateChat, // isPrivate
         token
       );
 
@@ -997,6 +1046,7 @@ const Chats = () => {
       type: 'text',
       content: newMessage,
       time: new Date().toLocaleTimeString(),
+      isPrivate: isPrivateChat,
     };
 
     try {
@@ -1019,7 +1069,8 @@ const Chats = () => {
             from: profile._id,
             fromName: profile?.profile?.firstName || 'User',
             timestamp: new Date().toISOString(),
-            status: 'sending'
+            status: 'sending',
+            isPrivate: isPrivateChat
           }
         };
         
@@ -1035,7 +1086,7 @@ const Chats = () => {
         newMessage,
         selectedCustomer.id,
         profile._id,
-        false,
+        isPrivateChat,
         token
       );
 
@@ -1159,10 +1210,16 @@ const Chats = () => {
 
     return (
       <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`} data-message-id={msg._id || msg.id}>
-        <div className={`relative ${msg.type === 'image' || msg.type === 'video' ? 'max-w-xs p-1' : msg.type === 'document' ? 'max-w-sm p-1 overflow-hidden' : 'max-w-md px-3 py-2'} rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} ${msg.type === 'image' || msg.type === 'video' || msg.type === 'document' ? '' : 'overflow-wrap-anywhere'}`}>
+        <div className={`relative ${msg.type === 'image' || msg.type === 'video' ? 'max-w-xs p-1' : msg.type === 'document' ? 'max-w-sm p-1 overflow-hidden' : 'max-w-md px-3 py-2'} rounded-lg ${
+          msg.isPrivate 
+            ? (isMe ? 'bg-gray-800 dark:bg-gray-900' : 'bg-gray-700 dark:bg-gray-800')
+            : (isMe ? 'bg-green-500' : 'bg-gray-600')
+        } ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} ${msg.type === 'image' || msg.type === 'video' || msg.type === 'document' ? '' : 'overflow-wrap-anywhere'} ${msg.isPrivate ? 'border border-gray-600 dark:border-gray-500' : ''}`}>
           {isMe ? (
             <svg
-              className="absolute top-0 right-[-5px] w-3 h-3 text-green-500 transform rotate-90"
+              className={`absolute top-0 right-[-5px] w-3 h-3 transform rotate-90 ${
+                msg.isPrivate ? 'text-gray-800 dark:text-gray-900' : 'text-green-500'
+              }`}
               viewBox="0 0 12 12"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -1171,7 +1228,9 @@ const Chats = () => {
             </svg>
           ) : (
             <svg
-              className="absolute top-0 left-[-5px] w-3 h-3 text-gray-600 transform rotate-90"
+              className={`absolute top-0 left-[-5px] w-3 h-3 transform rotate-90 ${
+                msg.isPrivate ? 'text-gray-700 dark:text-gray-800' : 'text-gray-600'
+              }`}
               viewBox="0 0 12 12"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -1182,6 +1241,13 @@ const Chats = () => {
 
           <div className="flex items-end justify-end">
             {content}
+            {msg.isPrivate && (
+              <div className="ml-2 flex items-center">
+                <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1231,6 +1297,28 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
             </div>
 
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex relative">
+              {/* Private Chat Toggle */}
+              <div className="flex items-center mr-2">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPrivateChat}
+                    onChange={(e) => handlePrivateChatToggle(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    isPrivateChat ? 'bg-gray-600' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}>
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      isPrivateChat ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </div>
+                  <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+                    Private
+                  </span>
+                </label>
+              </div>
+
               {/* Plus Icon for Media */}
               <div className="relative media-options-container">
                 <button

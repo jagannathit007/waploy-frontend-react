@@ -22,12 +22,12 @@ interface ChatAssignedToastProps {
 export default function ChatAssignedToast({ isVisible, onClose, assignmentData }: ChatAssignedToastProps) {
   const navigate = useNavigate();
 
-  // Auto-close toast after 10 seconds
+  // Auto-close toast after 30 seconds (increased from 10 seconds)
   useEffect(() => {
     if (isVisible) {
       const timer = setTimeout(() => {
         onClose();
-      }, 10000);
+      }, 30000); // Increased to 30 seconds
       return () => clearTimeout(timer);
     }
   }, [isVisible, onClose]);
@@ -44,10 +44,10 @@ export default function ChatAssignedToast({ isVisible, onClose, assignmentData }
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black bg-opacity-30 backdrop-blur-sm"
+        className="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm"
         onClick={handleOkayClick}
       />
       

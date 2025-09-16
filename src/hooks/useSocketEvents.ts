@@ -10,6 +10,7 @@ interface UseSocketEventsProps {
   onCustomerAdded?: (customer: any) => void;
   onChatAssigned?: (assignment: any) => void;
   onTaskAssigned?: (assignment: any) => void;
+  onPrivateChatStarted?: (chatData: any) => void;
 }
 
 export const useSocketEvents = ({
@@ -19,9 +20,10 @@ export const useSocketEvents = ({
   onCustomerAdded,
   onChatAssigned,
   onTaskAssigned,
+  onPrivateChatStarted,
 }: UseSocketEventsProps = {}) => {
   const { socket, isConnected, joinRoom, leaveRoom, sendToCompany, sendToAll, setPrivateOn, setPrivateOff } = useSocket();
-  const { showCustomerAddedToast, showChatAssignedToast, showTaskAssignedToast } = useToast();
+  const { showCustomerAddedToast, showChatAssignedToast, showTaskAssignedToast, showPrivateChatStartedToast } = useToast();
   const { profile } = useAuth();
 
   // Create stable empty functions for consistent dependency array
@@ -34,11 +36,13 @@ export const useSocketEvents = ({
   const stableOnCustomerAdded = useCallback(onCustomerAdded || emptyCallback, [onCustomerAdded, emptyCallback]);
   const stableOnChatAssigned = useCallback(onChatAssigned || emptyCallback, [onChatAssigned, emptyCallback]);
   const stableOnTaskAssigned = useCallback(onTaskAssigned || emptyCallback, [onTaskAssigned, emptyCallback]);
+  const stableOnPrivateChatStarted = useCallback(onPrivateChatStarted || emptyCallback, [onPrivateChatStarted, emptyCallback]);
 
   // Memoize toast functions to prevent dependency array changes
   const stableShowCustomerAddedToast = useCallback(showCustomerAddedToast, [showCustomerAddedToast]);
   const stableShowChatAssignedToast = useCallback(showChatAssignedToast, [showChatAssignedToast]);
   const stableShowTaskAssignedToast = useCallback(showTaskAssignedToast, [showTaskAssignedToast]);
+  const stableShowPrivateChatStartedToast = useCallback(showPrivateChatStartedToast, [showPrivateChatStartedToast]);
 
   // Set up event listeners - matching utils/socket.js events
   useEffect(() => {
@@ -56,14 +60,14 @@ export const useSocketEvents = ({
         const addedByUserId = message.userId || message.addedBy?.userId;
         const currentUserId = profile?._id;
         
-        // Don't show popup if current user added the customer
+        // Don't show notification to the user who created the customer
         if (addedByUserId && currentUserId && addedByUserId === currentUserId) {
-          console.log('🚫 Customer added by current user, not showing popup');
+          console.log('🚫 Skipping customer added notification for creator:', addedByUserId);
           return;
         }
         
         // Extract customer name from the content
-        const customerName = message.content?.replace('new customer added of name ', '') || 'Unknown Customer';
+        const customerName = message.customerName || message.content?.replace('new customer added of name ', '') || 'Unknown Customer';
         
         // Create a structured message for the toast
         const customerAddedData = {
@@ -71,7 +75,7 @@ export const useSocketEvents = ({
           customerName: customerName,
           addedBy: {
             userId: addedByUserId || 'unknown',
-            userName: message.addedBy?.userName || 'Team Member'
+            userName: message.addedBy?.userName || message.name || 'Team Member'
           },
           timestamp: new Date().toISOString()
         };
@@ -152,6 +156,37 @@ export const useSocketEvents = ({
         return;
       }
       
+      // Handle private chat started notification
+      if (message && message.type === 'private chat started') {
+        console.log('🔒 Private chat started notification received:', message);
+        
+        // Check if the current user is the one who started the private chat
+        const startedByUserId = message.startedBy?.userId;
+        const currentUserId = profile?._id;
+        
+        // Don't show popup if current user started the private chat
+        if (startedByUserId && currentUserId && startedByUserId === currentUserId) {
+          console.log('🚫 Private chat started by current user, not showing popup');
+          return;
+        }
+        
+        // Create a structured message for the toast
+        const privateChatStartedData = {
+          customerId: message.customerId || 'unknown',
+          customerName: message.customerName || 'Unknown Customer',
+          startedBy: {
+            userId: message.startedBy?.userId || 'unknown',
+            userName: message.startedBy?.userName || 'Team Member'
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log('✅ Showing private chat started popup for:', privateChatStartedData);
+        stableShowPrivateChatStartedToast(privateChatStartedData);
+        stableOnPrivateChatStarted(privateChatStartedData);
+        return;
+      }
+      
       stableOnCompanyMessage(message);
     };
 
@@ -184,7 +219,7 @@ export const useSocketEvents = ({
       socket.off('companyMessage', handleCompanyMessage);
       socket.off('message', handleGlobalMessage);
     };
-  }, [socket, isConnected, stableOnCompanyMessage, stableOnGlobalMessage, stableOnPrivateStatusChange, stableOnCustomerAdded, stableOnChatAssigned, stableOnTaskAssigned, stableShowCustomerAddedToast, stableShowChatAssignedToast, stableShowTaskAssignedToast, profile?._id]);
+  }, [socket, isConnected, stableOnCompanyMessage, stableOnGlobalMessage, stableOnPrivateStatusChange, stableOnCustomerAdded, stableOnChatAssigned, stableOnTaskAssigned, stableOnPrivateChatStarted, stableShowCustomerAddedToast, stableShowChatAssignedToast, stableShowTaskAssignedToast, stableShowPrivateChatStartedToast, profile?._id]);
 
   // Wrapper functions with error handling - matching utils/socket.js functionality
   const safeJoinRoom = useCallback((companyId: string) => {
