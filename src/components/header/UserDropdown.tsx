@@ -12,6 +12,7 @@ export default function UserDropdown() {
   // const navigate = useNavigate();
 
   const { profile } = useAuth();
+  const VITE_IMAGE_URL = import.meta.env.VITE_IMAGE_URL;
   function toggleDropdown() {
     setIsOpen(!isOpen);
   }
@@ -51,13 +52,21 @@ export default function UserDropdown() {
         onClick={toggleDropdown}
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
-        <span className="mr-3 flex items-center justify-center rounded-full h-11 w-11 bg-emerald-600 text-white font-semibold ">
-          {profile
-            ? profile?.profile?.lastName
-              ? `${profile?.profile?.firstName[0]}${profile?.profile?.lastName[0]}`.toUpperCase()
-              : profile?.profile?.firstName[0].toUpperCase()
-            : "U"}
-        </span>
+        {profile?.profile?.avatar ? (
+          <img
+            src={VITE_IMAGE_URL + profile.profile.avatar}
+            alt="User avatar"
+            className="mr-3 h-11 w-11 rounded-full object-cover"
+          />
+        ) : (
+          <span className="mr-3 flex items-center justify-center rounded-full h-11 w-11 bg-emerald-600 text-white font-semibold">
+            {profile
+              ? profile?.profile?.lastName
+                ? `${profile?.profile?.firstName[0]}${profile?.profile?.lastName[0]}`.toUpperCase()
+                : profile?.profile?.firstName[0].toUpperCase()
+              : "U"}
+          </span>
+        )}
 
         <span className="block mr-1 font-medium text-theme-md">
           {profile

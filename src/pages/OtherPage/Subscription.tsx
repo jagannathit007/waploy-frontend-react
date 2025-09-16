@@ -66,6 +66,14 @@ const Subscription = () => {
     timerProgressBar: true,
   });
 
+  // Define plan tiers (match backend; assume no 'free' plan, treat no subscription as tier 0)
+  const planTiers: { [key: string]: number } = {
+    basic: 1,
+    gold: 2,
+    platinum: 3,
+    // Add 'free': 0 if applicable
+  };
+
   // Fetch subscription plans and current subscription
   useEffect(() => {
     const fetchPlans = async () => {
@@ -136,16 +144,22 @@ const Subscription = () => {
     }
   }, [profile]);
 
-  const handleBuyNow = async (plan: SubscriptionPlan) => {
+  const handlePlanAction = async (plan: SubscriptionPlan, isUpgrade: boolean) => {
     try {
       const token = localStorage.getItem('token');
+      const endpoint = isUpgrade
+        ? `${import.meta.env.VITE_API_BASE}/upgrade-subscription`
+        : `${import.meta.env.VITE_API_BASE}/subscribe-to-plan`;
       const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE}/subscribe-to-plan`,
+        endpoint,
         { subscriptionPlanId: plan._id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.status === 200) {
-        Toast.fire({ icon: 'success', title: `Successfully subscribed to ${plan.name}` });
+        Toast.fire({
+          icon: 'success',
+          title: isUpgrade ? `Successfully upgraded to ${plan.name}` : `Successfully subscribed to ${plan.name}`,
+        });
         setShowNoSubscriptionPopup(false);
         const currentPlanResponse = await axios.post(
           `${import.meta.env.VITE_API_BASE}/get-current-subscription`,
@@ -156,21 +170,22 @@ const Subscription = () => {
           setCurrentPlan(currentPlanResponse.data.data);
         }
       } else {
-        throw new Error(response.data.message || 'Failed to subscribe to plan');
+        throw new Error(response.data.message || (isUpgrade ? 'Failed to upgrade plan' : 'Failed to subscribe to plan'));
       }
     } catch (error) {
-      console.error('Error subscribing to plan:', error);
+      console.error(`Error ${isUpgrade ? 'upgrading' : 'subscribing to'} plan:`, error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as any;
-        const errorMessage = axiosError.response?.data?.message || 'Failed to subscribe to plan';
+        const errorMessage = axiosError.response?.data?.message || (isUpgrade ? 'Failed to upgrade plan' : 'Failed to subscribe to plan');
         Toast.fire({
           icon: 'error',
-          title: errorMessage === 'You already have an active subscription. Only one active subscription is allowed!'
-            ? errorMessage
-            : 'Failed to subscribe to plan',
+          title: errorMessage,
         });
       } else {
-        Toast.fire({ icon: 'error', title: 'Failed to subscribe to plan' });
+        Toast.fire({
+          icon: 'error',
+          title: isUpgrade ? 'Failed to upgrade plan' : 'Failed to subscribe to plan',
+        });
       }
     }
   };
@@ -290,17 +305,20 @@ const Subscription = () => {
         {/* Subscription Plans */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 subscription-plans pt-6">
           {subscriptionPlans.map((plan) => {
-            const price = plan.price.monthly; // Use yearly price as default
-            const isCurrentPlan = currentPlan?.id === plan._id;
+            const price = plan.price.yearly; // Use monthly price as default
+            const currentTier = currentPlan ? planTiers[currentPlan.code] ?? 0 : 0;
+            const newTier = planTiers[plan.code] ?? 0;
+            const isSamePlan = currentPlan?.id === plan._id;
+            const isDowngrade = currentPlan && newTier <= currentTier; // Include same plan in downgrade check
             const isPopular = plan.code === 'gold' && !currentPlan; // Only show "Most Popular" if no current plan
-            // Disable all plans except the current one if a current plan exists
-            const isDisabled = currentPlan ? !isCurrentPlan : false;
+            // Disable if same plan or downgrade when current plan exists
+            const isDisabled = currentPlan && newTier <= currentTier;
 
             return (
               <div
                 key={plan._id}
                 className={`relative rounded-2xl shadow-lg border-2 transition-all duration-300 hover:shadow-xl ${
-                  isCurrentPlan
+                  isSamePlan
                     ? 'border-emerald-500 dark:border-emerald-400 scale-105'
                     : isPopular
                     ? 'border-emerald-500 dark:border-emerald-400 scale-105'
@@ -311,7 +329,7 @@ const Subscription = () => {
                   plan.code === 'basic' ? 'gray' : plan.code === 'platinum' ? 'purple' : 'emerald'
                 }-900/20`}
               >
-                {isCurrentPlan && (
+                {isSamePlan && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <span className="bg-emerald-500 text-white px-4 py-2 rounded-full text-sm font-medium">
                       Current Plan
@@ -456,25 +474,25 @@ const Subscription = () => {
                       )}
                     </div>
                   </div>
-                  {/* Buy Now Button */}
+                  {/* Action Button */}
                   <button
-                    onClick={() => handleBuyNow(plan)}
+                    onClick={() => handlePlanAction(plan, !!currentPlan && !isSamePlan)}
                     className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all duration-200 transform hover:scale-105 ${getButtonClasses(
                       plan,
-                      isDisabled
+                      !!isDisabled
                     )}`}
-                    disabled={isDisabled}
+                    disabled={!!isDisabled}
                   >
-                    {isCurrentPlan ? 'Current Plan' : 'Buy Now'}
+                    {isSamePlan ? 'Current Plan' : currentPlan ? 'Upgrade Plan' : 'Buy Now'}
                   </button>
-                  {isCurrentPlan && (
+                  {isSamePlan && (
                     <p className="text-center text-sm text-emerald-600 dark:text-emerald-400 mt-2 font-medium">
                       ✓ Active Subscription
                     </p>
                   )}
-                  {isDisabled && !isCurrentPlan && (
+                  {isDowngrade && !isSamePlan && (
                     <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2 font-medium">
-                      Subscription Change Not Allowed
+                      Downgrade Not Allowed
                     </p>
                   )}
                 </div>
@@ -503,7 +521,7 @@ const Subscription = () => {
                   <td className="py-3 px-4 text-gray-700 dark:text-gray-300">Yearly Price</td>
                   {subscriptionPlans.map((plan) => (
                     <td key={plan._id} className="text-center py-3 px-4 font-semibold text-gray-900 dark:text-white">
-                      ₹{plan.price.monthly.toLocaleString('en-IN')}
+                      ₹{plan.price.yearly.toLocaleString('en-IN')}
                     </td>
                   ))}
                 </tr>
