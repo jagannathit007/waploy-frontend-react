@@ -48,6 +48,8 @@ const UserProfiles = () => {
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const headerFileInputRef = useRef<HTMLInputElement>(null);
+  const userData = JSON.parse(localStorage.getItem("profile") || "{}");
+  const userRole = userData?.role;
 
   useEffect(() => {
     if (profile) {
@@ -530,7 +532,7 @@ const UserProfiles = () => {
             </div>
 
             {/* Company Information */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+            {userRole !== "team_member" && (<div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
@@ -571,7 +573,7 @@ const UserProfiles = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div>)}
 
             {/* Security Settings */}
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">

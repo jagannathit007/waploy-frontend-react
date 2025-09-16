@@ -1681,7 +1681,7 @@ const getMedia = (type: "image" | "video" | "audio" | "document") =>
               setShowAllMedia={setShowAllMedia}
               selectedMediaType={selectedMediaType}
               setSelectedMediaType={setSelectedMediaType}
-              getMedia={getMedia}
+              // getMedia={getMedia}
               handleBlock={handleBlock}
               handleDelete={handleDelete}
               setSelectedCustomer={setSelectedCustomer}
