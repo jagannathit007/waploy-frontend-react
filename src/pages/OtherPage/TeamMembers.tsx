@@ -271,7 +271,7 @@ const TeamMembers: React.FC = () => {
           });
         }
       } else {
-        const response = await createTeamMember({ ...memberForm, password: "defaultPassword" });
+        const response = await createTeamMember({ ...memberForm, password: "test@123" });
        console.log(response);
         if (response.status === 200 && response.data) {
           Toast.fire({
