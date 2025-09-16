@@ -28,6 +28,9 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
+const userData = JSON.parse(localStorage.getItem("profile") || "{}");
+const userRole = userData?.role;
+
 const navItems: NavItem[] = [
   {
     icon: <LayoutGrid />,
@@ -60,11 +63,15 @@ const navItems: NavItem[] = [
     name: "Subscription",
     path: "/subscription",
   },
-  {
-    icon: <CreditCard />,
-    name: "Subscription Management",
-    path: "/subscription-management",
-  },
+  ...(userRole !== "team_member"
+    ? [
+        {
+          icon: <CreditCard />,
+          name: "Subscription Management",
+          path: "/subscription-management",
+        },
+      ]
+    : []),
 
   {
     icon: <Tag />,

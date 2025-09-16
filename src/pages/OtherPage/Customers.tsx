@@ -544,12 +544,10 @@ const Customers: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {customer.user?.profile?.firstName &&
-                          customer.user?.profile?.lastName
+                          {customer.user?.profile?.firstName && customer.user?.profile?.lastName
                             ? `${customer.user.profile.firstName} ${customer.user.profile.lastName}`
-                            : customer.user?.profile?.firstName ||
-                              customer.user?.profile?.lastName ||
-                              "Unknown User"}{" "}
+                            : customer.user?.profile?.firstName || customer.user?.profile?.lastName || 'Unknown User'
+                          }
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
