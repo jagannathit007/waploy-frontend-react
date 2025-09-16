@@ -9,6 +9,8 @@ interface UserProfile {
     firstName: string;
     lastName: string;
     phone: string;
+    profileImage?: string;
+    avatar?:string;
   };
   company: {
     _id?: string;

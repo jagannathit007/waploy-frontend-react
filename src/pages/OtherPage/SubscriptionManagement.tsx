@@ -635,10 +635,10 @@ const SubscriptionManagement = () => {
 
                   <div className="mb-4">
                     <span className={`text-2xl font-bold ${colorClasses.text}`}>
-                      ₹{plan.price.monthly.toLocaleString("en-IN")}
+                      ₹{plan.price.yearly.toLocaleString("en-IN")}
                     </span>
                     <span className="text-gray-500 dark:text-gray-400">
-                      /month
+                      /year
                     </span>
                   </div>
 

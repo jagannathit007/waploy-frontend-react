@@ -117,18 +117,28 @@ export const apiCall = async (
   options: RequestInit = {},
   token?: string
 ) => {
-  const headers = {
-    "Content-Type": "application/json",
+  const headers: Record<string, string> = {
     ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
+    ...(options.headers
+      ? Object.fromEntries(
+          Object.entries(options.headers as Record<string, string>)
+        )
+      : {}),
   };
 
+  // 🚨 Only set Content-Type if body is NOT FormData
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  }
+
   const response = await fetch(`${API_BASE}${url}`, { ...options, headers });
+
   if (!response.ok) {
     const errorData: ApiResponse<null> = await response
       .json()
       .catch(() => ({ status: 500, message: "Request failed" }));
     throw new Error(errorData.message || "Request failed");
   }
+
   return response.json();
 };
