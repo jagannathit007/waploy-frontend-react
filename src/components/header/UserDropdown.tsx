@@ -58,6 +58,14 @@ export default function UserDropdown() {
             alt="User avatar"
             className="mr-3 h-11 w-11 rounded-full object-cover"
           />
+          ) : profile?.profile?.avatar === "" ? (
+          <span className="mr-3 flex items-center justify-center rounded-full h-11 w-11 bg-emerald-600 text-white font-semibold">
+            {profile
+              ? profile?.profile?.lastName
+                ? `${profile?.profile?.firstName[0]}${profile?.profile?.lastName[0]}`.toUpperCase()
+                : profile?.profile?.firstName[0].toUpperCase()
+              : "U"}
+          </span>
         ) : (
           <span className="mr-3 flex items-center justify-center rounded-full h-11 w-11 bg-emerald-600 text-white font-semibold">
             {profile

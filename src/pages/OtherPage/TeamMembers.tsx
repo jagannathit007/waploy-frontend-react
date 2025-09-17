@@ -275,9 +275,10 @@ const TeamMembers: React.FC = () => {
        console.log(response);
         if (response.status === 200 && response.data) {
           Toast.fire({
-            icon: "success",
-            title: response.message || "Team member created successfully!",
-          });
+          icon: "success",
+          title: response.message || "Team member created successfully!",
+          html: 'A default password <strong>"test@123"</strong> has been set. Please advise the new team member to reset their password if needed.',
+        });
           setMemberForm({
             _id: "",
             firstName: "",
@@ -713,6 +714,14 @@ const TeamMembers: React.FC = () => {
                   ))}
                 </select>
               </div>
+              {!memberForm._id && (
+          <div>
+            <p className="text-red-500 text-sm">
+              "test@123" set as default password when creating a new team member.
+              Please advise the team member to reset their password if needed.
+            </p>
+          </div>
+        )}
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-800">
                 <button
                   type="button"

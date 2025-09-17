@@ -237,7 +237,7 @@ const Chats = () => {
   }, [location.state, customers]);
 
   // Socket functionality for real-time messaging
-  const { socket, isConnected, sendToCompany, checkWhatsAppConnection } = useSocketEvents({
+  const { socket, isConnected, sendToCompany } = useSocketEvents({
     onCompanyMessage: (message) => {
       console.log('📨 Received real-time message in chat:', message);
 
@@ -1217,6 +1217,7 @@ const Chats = () => {
   const renderMessage = (msg: Message) => {
     const isMe = msg.from === 'me' || msg.from === profile?._id;
     const messageContent = msg.content;
+    const isPrivate = msg.isPrivate || false;
     let content;
 
     switch (msg.type) {
@@ -1349,50 +1350,58 @@ const Chats = () => {
         );
     }
 
+    const backgroundColor = isPrivate ? 'bg-gray-800' : isMe ? 'bg-green-500' : 'bg-gray-600';
       return (
         <div
               className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}
               data-message-id={msg._id || msg.id}
             >
-              <div
-                className={`relative ${msg.type === 'image' || msg.type === 'video'
-                    ? 'max-w-xs p-1'
-                    : msg.type === 'document'
-                      ? 'max-w-sm p-1 overflow-hidden'
-                      : 'max-w-md px-3 py-2'
-                  } rounded-lg ${isMe ? 'bg-green-500' : 'bg-gray-600'} ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'
-                  } ${msg.type === 'image' || msg.type === 'video' || msg.type === 'document'
-                    ? ''
-                    : 'overflow-wrap-anywhere'
-                  }`}
-              >
-                {isMe ? (
-                  <svg
-                    className="absolute top-0 right-[-5px] w-3 h-3 text-green-500 transform rotate-90"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
-                  </svg>
-                ) : (
-                  <svg
-                    className="absolute top-0 left-[-5px] w-3 h-3 text-gray-600 transform rotate-90"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
-                  </svg>
-                )}
+             <div
+        className={`relative ${
+          msg.type === 'image' || msg.type === 'video'
+            ? 'max-w-xs p-1'
+            : msg.type === 'document'
+            ? 'max-w-sm p-1 overflow-hidden'
+            : 'max-w-md px-3 py-2'
+        } rounded-lg ${backgroundColor} ${
+          isMe ? 'rounded-br-sm' : 'rounded-bl-sm'
+        } ${
+          msg.type === 'image' || msg.type === 'video' || msg.type === 'document'
+            ? ''
+            : 'overflow-wrap-anywhere'
+        }`}
+      >
+               {isMe ? (
+  <svg
+    className={`absolute top-0 right-[-5px] w-3 h-3 ${
+      isPrivate ? 'text-gray-800' : 'text-green-500'
+    } transform rotate-90`}
+    viewBox="0 0 12 12"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+  </svg>
+) : (
+  <svg
+    className={`absolute top-0 left-[-5px] w-3 h-3 ${
+      isPrivate ? 'text-gray-800' : 'text-gray-600'
+    } transform rotate-90`}
+    viewBox="0 0 12 12"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M0 0L6 6L0 12V0Z" fill="currentColor" />
+  </svg>
+)}
                 <div className="flex items-end justify-end">{content}</div>
           </div>
         </div>
         );
 };
 
-const getMedia = (type: "image" | "video" | "audio" | "document") =>
-    messages.filter((m) => m.type === type);
+// const getMedia = (type: "image" | "video" | "audio" | "document") =>
+//     messages.filter((m) => m.type === type);
 
 
         return (

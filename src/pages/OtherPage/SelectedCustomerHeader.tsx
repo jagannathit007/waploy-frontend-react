@@ -1,7 +1,7 @@
 // SelectedCustomerHeader.tsx
 import React from 'react';
 import AssignChat from './assignChat';
-import { useSocket } from '../../context/SocketContext';
+// import { useSocket } from '../../context/SocketContext';
 
 interface Customer {
   id: string;
@@ -31,7 +31,7 @@ const SelectedCustomerHeader: React.FC<SelectedCustomerHeaderProps> = ({
   setShowSearchModal,
   handleAssignmentComplete,
 }) => {
-  const { isConnected } = useSocket();
+  // const { isConnected } = useSocket();
 
   return (
     <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex items-center justify-between">

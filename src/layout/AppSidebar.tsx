@@ -58,12 +58,16 @@ const navItems: NavItem[] = [
     path: "/chats",
   },
 
+  ...(userRole !== "team_member"
+    ? [
   {
     icon: <CreditCard />,
     name: "Subscription",
     path: "/subscription",
-  },
-  ...(userRole !== "team_member"
+  }
+  ]
+    : []),
+  ...(userRole === "super_admin"
     ? [
         {
           icon: <CreditCard />,
